@@ -33,6 +33,19 @@
         left: 0 !important;
       }
 
+      a-scene canvas {
+        width: 100% !important;
+        height: 100% !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+      }
+
+      .a-canvas {
+        width: 100% !important;
+        height: 100% !important;
+      }
+
       #overlay {
         position: fixed;
         top: 0;
@@ -164,8 +177,8 @@
     <a-scene
       embedded
       vr-mode-ui="enabled: false"
-      renderer="antialias: true; alpha: true; colorManagement: true; logarithmicDepthBuffer: true;"
-      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; trackingMethod: best; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;"
+      renderer="antialias: true; alpha: true; colorManagement: true;"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; trackingMethod: best; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960; maxDetectionRate: 60; canvasWidth: 1280; canvasHeight: 960;"
       gesture-detector
     >
       <a-assets timeout="30000">
@@ -208,9 +221,9 @@
           id="videoPlane"
           position="0 0 0"
           rotation="-90 0 0"
-          width="1.6"
-          height="0.9"
-          material="shader: flat; transparent: true; side: double; alphaTest: 0.01;"
+          width="1.78"
+          height="1.0"
+          material="shader: flat; transparent: true; side: double; alphaTest: 0.5;"
         ></a-plane>
       </a-marker>
 
@@ -326,9 +339,15 @@ Format: ${video.id === 'videoMp4' ? 'MP4' : 'WebM'}
         console.log('📐 Metadata carregada');
         if (video.videoWidth > 0 && video.videoHeight > 0) {
           const aspect = video.videoWidth / video.videoHeight;
-          plane.setAttribute("width", aspect * 1.2);
-          plane.setAttribute("height", 1.2);
-          console.log(`📐 Dimensões: ${video.videoWidth}x${video.videoHeight}`);
+          const baseSize = 1.0; // Tamanho base menor
+          plane.setAttribute("width", aspect * baseSize);
+          plane.setAttribute("height", baseSize);
+          console.log(`📐 Dimensões vídeo: ${video.videoWidth}x${video.videoHeight}`);
+          console.log(`📐 Plano AR: ${aspect * baseSize}x${baseSize}`);
+        } else {
+          // Fallback com proporção 16:9
+          plane.setAttribute("width", 1.78);
+          plane.setAttribute("height", 1.0);
         }
       });
 
@@ -355,6 +374,19 @@ Format: ${video.id === 'videoMp4' ? 'MP4' : 'WebM'}
         console.log('✅ A-Frame carregado');
         state.sceneReady = true;
         updateDebug();
+        
+        // Força canvas a ocupar tela toda
+        setTimeout(() => {
+          const canvas = document.querySelector('canvas');
+          if (canvas) {
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.position = 'fixed';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            console.log('🖼️ Canvas ajustado');
+          }
+        }, 500);
       });
 
       // AR.js ready - CORREÇÃO IMPORTANTE
