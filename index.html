@@ -15,33 +15,6 @@
         background: transparent;
       }
 
-      #playBtn {
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 9999;
-        padding: 20px 40px;
-        font-size: 18px;
-        font-weight: bold;
-        border: none;
-        border-radius: 12px;
-        background: #4CAF50;
-        color: white;
-        cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        transition: transform 0.1s;
-      }
-
-      #playBtn:active {
-        transform: translate(-50%, -50%) scale(0.95);
-      }
-
-      #playBtn.hidden {
-        display: none;
-      }
-
       #status {
         position: fixed;
         bottom: 20px;
@@ -55,6 +28,7 @@
         border-radius: 20px;
         text-align: center;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 80%;
       }
 
       a-scene {
@@ -67,8 +41,7 @@
     </style>
   </head>
   <body>
-    <button id="playBtn">▶️ Iniciar AR</button>
-    <div id="status">Toque em ▶️ para começar</div>
+    <div id="status">📷 Carregando câmera...</div>
 
     <a-scene
       id="arScene"
@@ -116,7 +89,6 @@
     </a-scene>
 
     <script>
-      const btn = document.getElementById("playBtn");
       const status = document.getElementById("status");
       const marker = document.getElementById("marker");
       const plane = document.getElementById("videoPlane");
@@ -124,13 +96,11 @@
       const videoWebm = document.getElementById("videoWebm");
       const videoMp4 = document.getElementById("videoMp4");
 
-      let isStarted = false;
-
       // Detecta Safari
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const video = isSafari ? videoMp4 : videoWebm;
 
-      // Configura o material com o vídeo correto
+      // Quando o vídeo carregar os metadados
       video.addEventListener("loadedmetadata", () => {
         const aspect = video.videoWidth / video.videoHeight;
         plane.setAttribute("width", aspect);
@@ -144,53 +114,41 @@
         });
       });
 
-      // Função para iniciar tudo
-      async function startAR() {
-        if (isStarted) return;
+      // Tenta iniciar o vídeo quando a cena carregar
+      scene.addEventListener("arjs-video-loaded", () => {
+        status.textContent = "🎬 Aponte a câmera para o marcador";
         
-        try {
-          // Inicia o vídeo
-          await video.play();
-          
-          isStarted = true;
-          btn.classList.add("hidden");
-          status.textContent = "🎬 Aponte a câmera para o marcador";
-          
-          console.log("✅ AR iniciado com sucesso!");
-        } catch (err) {
-          console.error("❌ Erro ao iniciar:", err);
-          status.textContent = "❌ Erro ao iniciar. Toque novamente.";
-          isStarted = false;
-        }
-      }
-
-      // Evento do botão
-      btn.addEventListener("click", () => {
-        status.textContent = "⏳ Iniciando...";
-        startAR();
+        // Tenta tocar o vídeo
+        video.play().catch(err => {
+          console.log("Vídeo não pode iniciar automaticamente:", err);
+          // Não faz nada, vai tentar quando detectar o marcador
+        });
       });
 
       // Quando detecta o marcador
       marker.addEventListener("markerFound", () => {
         status.textContent = "✅ Marcador detectado!";
         
-        // Se ainda não iniciou, tenta iniciar
-        if (!isStarted) {
-          startAR();
+        // Garante que o vídeo está tocando
+        if (video.paused) {
+          video.play().catch(err => {
+            console.log("Erro ao tocar vídeo:", err);
+          });
         }
       });
 
       // Quando perde o marcador
       marker.addEventListener("markerLost", () => {
-        if (isStarted) {
-          status.textContent = "🔍 Procurando marcador...";
-        }
+        status.textContent = "🔍 Procurando marcador...";
       });
 
-      // Previne que o AR.js inicie automaticamente
-      scene.addEventListener("loaded", () => {
-        console.log("🎯 Cena carregada, aguardando interação do usuário");
-      });
+      // Fallback caso o evento arjs-video-loaded não dispare
+      setTimeout(() => {
+        if (status.textContent === "📷 Carregando câmera...") {
+          status.textContent = "🎬 Aponte a câmera para o marcador";
+          video.play().catch(() => {});
+        }
+      }, 3000);
     </script>
   </body>
 </html>
