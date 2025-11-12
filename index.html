@@ -252,73 +252,9 @@
         videoReady: false,
         videoPlaying: false,
         markerVisible: false,
-        arReady: false
+        arReady: false,
+        videoSetup: false
       };
-
-      // Configura o vídeo no plano
-      function setupVideo() {
-        // Força o carregamento do vídeo
-        video.load();
-        
-        plane.setAttribute("material", {
-          shader: "flat",
-          src: `#${video.id}`,
-          transparent: true,
-          side: "double",
-          alphaTest: 0.01
-        });
-        
-        console.log(`📹 Usando vídeo: ${video.id}`);
-        
-        // Tenta carregar o vídeo imediatamente
-        video.play().then(() => {
-          console.log('✅ Vídeo iniciado automaticamente');
-          state.videoPlaying = true;
-          updateDebug();
-        }).catch(err => {
-          console.log('⚠️ Aguardando interação do usuário para iniciar vídeo');
-        });
-      }
-
-      // Ajusta proporção do vídeo
-      video.addEventListener('loadedmetadata', () => {
-        if (video.videoWidth > 0 && video.videoHeight > 0) {
-          const aspect = video.videoWidth / video.videoHeight;
-          plane.setAttribute("width", aspect * 1.2);
-          plane.setAttribute("height", 1.2);
-          state.videoReady = true;
-          console.log(`📐 Dimensões: ${video.videoWidth}x${video.videoHeight}`);
-        } else {
-          // Fallback se não conseguir dimensões
-          plane.setAttribute("width", 1.6);
-          plane.setAttribute("height", 0.9);
-          state.videoReady = true;
-        }
-        updateDebug();
-      });
-      
-      // Força carregamento do vídeo
-      video.addEventListener('loadeddata', () => {
-        console.log('📹 Vídeo pronto para reproduzir');
-        state.videoReady = true;
-        updateDebug();
-      });
-
-      video.addEventListener('play', () => {
-        state.videoPlaying = true;
-        console.log('▶️ Vídeo tocando');
-        updateDebug();
-      });
-
-      video.addEventListener('pause', () => {
-        state.videoPlaying = false;
-        updateDebug();
-      });
-
-      video.addEventListener('error', (e) => {
-        console.error('❌ Erro no vídeo:', e);
-        status.textContent = "⚠️ Erro ao carregar vídeo";
-      });
 
       // Atualiza debug info
       function updateDebug() {
@@ -337,51 +273,136 @@ Format: ${video.id === 'videoMp4' ? 'MP4' : 'WebM'}
         `.trim();
       }
 
+      // Configura o vídeo no plano - CORREÇÃO PRINCIPAL
+      function setupVideo() {
+        if (state.videoSetup) return;
+        
+        console.log(`📹 Configurando vídeo: ${video.id}`);
+        
+        // Define o material do plano com o vídeo
+        plane.setAttribute("material", {
+          shader: "flat",
+          src: `#${video.id}`,
+          transparent: true,
+          side: "double",
+          alphaTest: 0.01
+        });
+        
+        state.videoSetup = true;
+        console.log('✅ Material do vídeo configurado');
+      }
+
+      // Força carregamento do vídeo
+      function preloadVideo() {
+        return new Promise((resolve, reject) => {
+          console.log('📥 Pré-carregando vídeo...');
+          
+          const timeout = setTimeout(() => {
+            console.warn('⚠️ Timeout no carregamento, continuando...');
+            resolve();
+          }, 5000);
+          
+          video.addEventListener('loadeddata', () => {
+            clearTimeout(timeout);
+            console.log('✅ Vídeo carregado');
+            state.videoReady = true;
+            updateDebug();
+            resolve();
+          }, { once: true });
+          
+          video.addEventListener('error', (e) => {
+            clearTimeout(timeout);
+            console.error('❌ Erro no vídeo:', e);
+            reject(e);
+          }, { once: true });
+          
+          // Força o carregamento
+          video.load();
+        });
+      }
+
+      // Ajusta proporção do vídeo
+      video.addEventListener('loadedmetadata', () => {
+        console.log('📐 Metadata carregada');
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          const aspect = video.videoWidth / video.videoHeight;
+          plane.setAttribute("width", aspect * 1.2);
+          plane.setAttribute("height", 1.2);
+          console.log(`📐 Dimensões: ${video.videoWidth}x${video.videoHeight}`);
+        }
+      });
+
+      video.addEventListener('play', () => {
+        state.videoPlaying = true;
+        console.log('▶️ Vídeo tocando');
+        updateDebug();
+      });
+
+      video.addEventListener('pause', () => {
+        state.videoPlaying = false;
+        console.log('⏸️ Vídeo pausado');
+        updateDebug();
+      });
+
+      video.addEventListener('ended', () => {
+        console.log('🔄 Vídeo terminou, reiniciando...');
+        video.currentTime = 0;
+        video.play().catch(e => console.warn('Erro ao reiniciar:', e));
+      });
+
       // Scene ready
       scene.addEventListener('loaded', () => {
         console.log('✅ A-Frame carregado');
         state.sceneReady = true;
-        setupVideo();
         updateDebug();
       });
 
-      // AR.js ready
-      scene.addEventListener('arjs-video-loaded', () => {
+      // AR.js ready - CORREÇÃO IMPORTANTE
+      scene.addEventListener('arjs-video-loaded', async () => {
         console.log('✅ AR.js câmera pronta');
         state.arReady = true;
         state.cameraReady = true;
         updateDebug();
+        
+        // Configura vídeo após AR estar pronto
+        setupVideo();
+        
+        // Tenta carregar o vídeo
+        try {
+          await preloadVideo();
+        } catch (e) {
+          console.warn('Erro ao pré-carregar, continuando:', e);
+        }
       });
 
-      // Marker events
+      // Marker events - CORREÇÃO CRÍTICA
       marker.addEventListener("markerFound", async () => {
         console.log('🎯 MARCADOR DETECTADO!');
         state.markerVisible = true;
         status.textContent = "🎉 MARCADOR ENCONTRADO!";
+        updateDebug();
         
-        // FORÇA play do vídeo SEMPRE que detectar marcador
-        if (video.paused) {
+        // Força reprodução do vídeo com múltiplas tentativas
+        console.log('🎬 Tentando reproduzir vídeo...');
+        
+        for (let i = 0; i < 3; i++) {
           try {
             video.muted = true;
             video.volume = 0;
-            await video.play();
-            console.log('▶️ Vídeo iniciado pelo marcador');
-            state.videoPlaying = true;
+            
+            if (video.paused) {
+              await video.play();
+              console.log(`✅ Vídeo iniciado (tentativa ${i + 1})`);
+              break;
+            }
           } catch (e) {
-            console.warn('⚠️ Erro ao tocar vídeo:', e);
-            // Tenta novamente após 100ms
-            setTimeout(async () => {
-              try {
-                await video.play();
-                state.videoPlaying = true;
-              } catch (e2) {
-                console.error('❌ Falha definitiva ao tocar vídeo');
-              }
-            }, 100);
+            console.warn(`❌ Tentativa ${i + 1} falhou:`, e);
+            if (i === 2) {
+              status.textContent = "⚠️ Erro ao tocar vídeo - toque na tela";
+            }
+            await new Promise(resolve => setTimeout(resolve, 200));
           }
         }
-        
-        updateDebug();
       });
 
       marker.addEventListener("markerLost", () => {
@@ -389,72 +410,51 @@ Format: ${video.id === 'videoMp4' ? 'MP4' : 'WebM'}
         state.markerVisible = false;
         status.textContent = "🔍 Procurando marcador...";
         updateDebug();
+        
+        // Pausa o vídeo para economizar recursos
+        if (!video.paused) {
+          video.pause();
+        }
       });
 
-      // Função principal de inicialização
+      // Função principal de inicialização - CORRIGIDA
       async function startAR() {
         startBtn.disabled = true;
         startBtn.textContent = "⏳ Iniciando...";
-        status.textContent = "🔄 Solicitando câmera...";
+        status.textContent = "🔄 Preparando AR...";
 
         try {
-          // 1. Solicita permissão da câmera
-          const constraints = {
-            video: {
-              facingMode: isMobile ? 'environment' : 'user',
-              width: { ideal: 1280 },
-              height: { ideal: 960 }
-            }
-          };
-
-          console.log('📸 Solicitando câmera com:', constraints);
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          console.log('🚀 Iniciando AR...');
           
-          console.log('✅ Permissão concedida');
-          state.cameraReady = true;
-          
-          // Para o stream de teste
-          stream.getTracks().forEach(track => track.stop());
-          
-          // 2. Aguarda AR.js
-          status.textContent = "⏳ Inicializando AR...";
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          // 3. Inicia vídeo COM CERTEZA
+          // 1. Prepara o vídeo ANTES de remover o overlay
           video.muted = true;
           video.volume = 0;
-          video.loop = true;
-          video.playsInline = true;
+          video.setAttribute('muted', '');
+          video.setAttribute('playsinline', '');
           
-          // Força múltiplas tentativas de play
-          let playAttempts = 0;
-          const tryPlayVideo = async () => {
-            try {
-              await video.play();
-              console.log('✅ Vídeo iniciado na tentativa', playAttempts + 1);
-              state.videoPlaying = true;
-              return true;
-            } catch (e) {
-              playAttempts++;
-              if (playAttempts < 5) {
-                console.log(`⏳ Tentativa ${playAttempts} falhou, tentando novamente...`);
-                await new Promise(r => setTimeout(r, 200));
-                return tryPlayVideo();
-              }
-              console.warn('❌ Não foi possível iniciar vídeo após 5 tentativas');
-              return false;
-            }
-          };
+          console.log('📹 Configurações do vídeo:', {
+            muted: video.muted,
+            volume: video.volume,
+            paused: video.paused,
+            readyState: video.readyState
+          });
           
-          await tryPlayVideo();
+          // 2. Tenta iniciar o vídeo (interação do usuário)
+          try {
+            await video.play();
+            console.log('✅ Vídeo pré-iniciado com sucesso');
+          } catch (e) {
+            console.warn('⚠️ Pré-play falhou (normal):', e.name);
+          }
           
-          // 4. Remove overlay
+          // 3. Remove overlay
+          await new Promise(resolve => setTimeout(resolve, 500));
           overlay.classList.add("hidden");
           status.textContent = "🎯 Aponte para o marcador!";
           
           updateDebug();
           
-          // 5. Previne tela desligar
+          // 4. Previne tela desligar
           if ('wakeLock' in navigator) {
             try {
               await navigator.wakeLock.request('screen');
@@ -464,10 +464,23 @@ Format: ${video.id === 'videoMp4' ? 'MP4' : 'WebM'}
             }
           }
           
+          // 5. Adiciona listener de toque para fallback
+          document.addEventListener('touchstart', async () => {
+            if (state.markerVisible && video.paused) {
+              console.log('👆 Tentando play via toque...');
+              try {
+                await video.play();
+                console.log('✅ Vídeo iniciado via toque');
+              } catch (e) {
+                console.warn('Erro no play via toque:', e);
+              }
+            }
+          }, { once: true });
+          
         } catch (err) {
           console.error("❌ Erro:", err);
           
-          let errorMsg = "❌ Erro desconhecido";
+          let errorMsg = "❌ Erro ao iniciar AR";
           
           if (err.name === "NotAllowedError") {
             errorMsg = "❌ Permissão negada - Recarregue a página";
@@ -507,10 +520,11 @@ Format: ${video.id === 'videoMp4' ? 'MP4' : 'WebM'}
       }
 
       // Log de inicialização
-      console.log('🚀 Dispositivo:', isMobile ? 'Mobile' : 'Desktop');
-      console.log('🌐 Navegador:', isSafari ? 'Safari' : 'Other');
-      console.log('📱 iOS:', isIOS);
+      console.log('🚀 App iniciado');
+      console.log('📱 Dispositivo:', isMobile ? 'Mobile' : 'Desktop');
+      console.log('🌐 Navegador:', isSafari ? 'Safari' : (isIOS ? 'iOS' : 'Other'));
       console.log('🔒 Seguro:', isSecure);
+      console.log('🎬 Vídeo selecionado:', video.id);
       
       updateDebug();
     </script>
