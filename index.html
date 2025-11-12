@@ -257,6 +257,9 @@
 
       // Configura o vídeo no plano
       function setupVideo() {
+        // Força o carregamento do vídeo
+        video.load();
+        
         plane.setAttribute("material", {
           shader: "flat",
           src: `#${video.id}`,
@@ -266,15 +269,38 @@
         });
         
         console.log(`📹 Usando vídeo: ${video.id}`);
+        
+        // Tenta carregar o vídeo imediatamente
+        video.play().then(() => {
+          console.log('✅ Vídeo iniciado automaticamente');
+          state.videoPlaying = true;
+          updateDebug();
+        }).catch(err => {
+          console.log('⚠️ Aguardando interação do usuário para iniciar vídeo');
+        });
       }
 
       // Ajusta proporção do vídeo
       video.addEventListener('loadedmetadata', () => {
-        const aspect = video.videoWidth / video.videoHeight;
-        plane.setAttribute("width", aspect * 1.2);
-        plane.setAttribute("height", 1.2);
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          const aspect = video.videoWidth / video.videoHeight;
+          plane.setAttribute("width", aspect * 1.2);
+          plane.setAttribute("height", 1.2);
+          state.videoReady = true;
+          console.log(`📐 Dimensões: ${video.videoWidth}x${video.videoHeight}`);
+        } else {
+          // Fallback se não conseguir dimensões
+          plane.setAttribute("width", 1.6);
+          plane.setAttribute("height", 0.9);
+          state.videoReady = true;
+        }
+        updateDebug();
+      });
+      
+      // Força carregamento do vídeo
+      video.addEventListener('loadeddata', () => {
+        console.log('📹 Vídeo pronto para reproduzir');
         state.videoReady = true;
-        console.log(`📐 Dimensões: ${video.videoWidth}x${video.videoHeight}`);
         updateDebug();
       });
 
@@ -328,14 +354,31 @@ Format: ${video.id === 'videoMp4' ? 'MP4' : 'WebM'}
       });
 
       // Marker events
-      marker.addEventListener("markerFound", () => {
+      marker.addEventListener("markerFound", async () => {
         console.log('🎯 MARCADOR DETECTADO!');
         state.markerVisible = true;
         status.textContent = "🎉 MARCADOR ENCONTRADO!";
         
-        // Força play do vídeo
+        // FORÇA play do vídeo SEMPRE que detectar marcador
         if (video.paused) {
-          video.play().catch(e => console.warn('Play error:', e));
+          try {
+            video.muted = true;
+            video.volume = 0;
+            await video.play();
+            console.log('▶️ Vídeo iniciado pelo marcador');
+            state.videoPlaying = true;
+          } catch (e) {
+            console.warn('⚠️ Erro ao tocar vídeo:', e);
+            // Tenta novamente após 100ms
+            setTimeout(async () => {
+              try {
+                await video.play();
+                state.videoPlaying = true;
+              } catch (e2) {
+                console.error('❌ Falha definitiva ao tocar vídeo');
+              }
+            }, 100);
+          }
         }
         
         updateDebug();
@@ -377,12 +420,33 @@ Format: ${video.id === 'videoMp4' ? 'MP4' : 'WebM'}
           status.textContent = "⏳ Inicializando AR...";
           await new Promise(resolve => setTimeout(resolve, 1500));
           
-          // 3. Inicia vídeo
+          // 3. Inicia vídeo COM CERTEZA
           video.muted = true;
           video.volume = 0;
+          video.loop = true;
+          video.playsInline = true;
           
-          await video.play();
-          console.log('✅ Vídeo iniciado');
+          // Força múltiplas tentativas de play
+          let playAttempts = 0;
+          const tryPlayVideo = async () => {
+            try {
+              await video.play();
+              console.log('✅ Vídeo iniciado na tentativa', playAttempts + 1);
+              state.videoPlaying = true;
+              return true;
+            } catch (e) {
+              playAttempts++;
+              if (playAttempts < 5) {
+                console.log(`⏳ Tentativa ${playAttempts} falhou, tentando novamente...`);
+                await new Promise(r => setTimeout(r, 200));
+                return tryPlayVideo();
+              }
+              console.warn('❌ Não foi possível iniciar vídeo após 5 tentativas');
+              return false;
+            }
+          };
+          
+          await tryPlayVideo();
           
           // 4. Remove overlay
           overlay.classList.add("hidden");
