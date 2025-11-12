@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>AR Marker + Vídeo Transparente</title>
+    <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+
+    <style>
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #arjsDebugUIContainer {
+        display: none !important;
+      }
+
+      #overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.95);
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        box-sizing: border-box;
+      }
+
+      #overlay.hidden {
+        display: none;
+      }
+
+      .info-box {
+        background: #fff;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 400px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .info-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+      }
+
+      .info-title {
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 12px;
+        color: #333;
+      }
+
+      .info-message {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.6;
+        margin-bottom: 20px;
+      }
+
+      #startBtn {
+        padding: 14px 32px;
+        font-size: 16px;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        background: #4CAF50;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        transition: all 0.3s;
+      }
+
+      #startBtn:hover {
+        background: #45a049;
+        transform: scale(1.05);
+      }
+
+      #startBtn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      #status {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        padding: 12px 24px;
+        color: white;
+        font-size: 14px;
+        background: rgba(0, 0, 0, 0.8);
+        border-radius: 20px;
+        text-align: center;
+        min-width: 200px;
+        backdrop-filter: blur(10px);
+      }
+
+      #debugInfo {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-family: monospace;
+        z-index: 9998;
+        max-width: 300px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="overlay">
+      <div class="info-box">
+        <div class="info-icon">📸</div>
+        <div class="info-title">Realidade Aumentada</div>
+        <div class="info-message">
+          Clique para permitir o acesso à câmera e iniciar a experiência AR.
+        </div>
+        <button id="startBtn">🚀 Iniciar AR</button>
+      </div>
+    </div>
+
+    <div id="status">Aguardando inicialização...</div>
+    <div id="debugInfo"></div>
+
+    <a-scene
+      embedded
+      vr-mode-ui="enabled: false"
+      renderer="antialias: true; alpha: true; colorManagement: true; precision: medium;"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; trackingMethod: best;"
+    >
+      <a-assets>
+        <video
+          id="videoWebm"
+          src="./video_transparente.webm"
+          preload="auto"
+          loop
+          muted
+          playsinline
+          webkit-playsinline
+          crossorigin="anonymous"
+        ></video>
+
+        <video
+          id="videoMp4"
+          src="./video_fallback.mp4"
+          preload="auto"
+          loop
+          muted
+          playsinline
+          webkit-playsinline
+          crossorigin="anonymous"
+        ></video>
+      </a-assets>
+
+      <a-marker 
+        type="pattern" 
+        url="marker.patt" 
+        id="marker"
+        smooth="true"
+        smoothCount="5"
+        smoothTolerance="0.01"
+        smoothThreshold="2"
+      >
+        <a-plane
+          id="videoPlane"
+          position="0 0 0"
+          rotation="-90 0 0"
+          width="1.6"
+          height="0.9"
+          material="shader: flat; transparent: true; side: double; alphaTest: 0.01; opacity: 1;"
+        ></a-plane>
+      </a-marker>
+
+      <a-entity camera></a-entity>
+    </a-scene>
+
+    <script>
+      const overlay = document.getElementById("overlay");
+      const startBtn = document.getElementById("startBtn");
+      const status = document.getElementById("status");
+      const debugInfo = document.getElementById("debugInfo");
+      const marker = document.getElementById("marker");
+      const plane = document.getElementById("videoPlane");
+      const videoWebm = document.getElementById("videoWebm");
+      const videoMp4 = document.getElementById("videoMp4");
+      
+      // Detecta Safari
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const video = isSafari ? videoMp4 : videoWebm;
+      
+      // Configura o vídeo correto no plano
+      plane.setAttribute("src", `#${video.id}`);
+      
+      let sceneReady = false;
+      let cameraStarted = false;
+      let videoPlaying = false;
+      let markerVisible = false;
+
+      // Função de debug
+      function updateDebug() {
+        debugInfo.innerHTML = `
+          <strong>Debug Info:</strong><br>
+          Scene Ready: ${sceneReady ? '✅' : '❌'}<br>
+          Camera: ${cameraStarted ? '✅' : '❌'}<br>
+          Video: ${videoPlaying ? '✅' : '❌'}<br>
+          Marker: ${markerVisible ? '✅ DETECTADO' : '❌'}<br>
+          Protocol: ${window.location.protocol}<br>
+          Video Ready: ${video.readyState >= 2 ? '✅' : '❌'}<br>
+          Using: ${isSafari ? 'MP4' : 'WebM'}
+        `;
+      }
+
+      // Atualiza debug a cada segundo
+      setInterval(updateDebug, 1000);
+
+      // Aguarda a scene estar pronta
+      const scene = document.querySelector('a-scene');
+      
+      scene.addEventListener('loaded', () => {
+        console.log('✅ A-Frame scene carregada');
+        sceneReady = true;
+        updateDebug();
+      });
+
+      // Monitora quando o AR.js está pronto
+      scene.addEventListener('arjs-video-loaded', () => {
+        console.log('✅ Vídeo da câmera carregado');
+        cameraStarted = true;
+        status.textContent = "📹 Câmera ativa - Aponte para o marcador";
+        updateDebug();
+      });
+
+      // Função para iniciar tudo
+      async function startAR() {
+        startBtn.disabled = true;
+        startBtn.textContent = "⏳ Iniciando...";
+        status.textContent = "🔄 Solicitando permissão da câmera...";
+
+        try {
+          // 1. Primeiro solicita permissão da câmera
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode: 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            } 
+          });
+          
+          console.log('✅ Permissão da câmera concedida');
+          status.textContent = "✅ Câmera autorizada!";
+          
+          // Para o stream de teste (AR.js vai criar o seu próprio)
+          stream.getTracks().forEach(track => track.stop());
+          
+          // 2. Aguarda um pouco para o AR.js inicializar
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // 3. Tenta reproduzir o vídeo
+          video.muted = true;
+          video.play().then(() => {
+            console.log('✅ Vídeo iniciado');
+            videoPlaying = true;
+            updateDebug();
+          }).catch(err => {
+            console.warn('⚠️ Erro ao reproduzir vídeo:', err);
+          });
+          
+          // 4. Remove overlay
+          overlay.classList.add("hidden");
+          status.textContent = "🎯 Aponte a câmera para o marcador AR";
+          
+        } catch (err) {
+          console.error("❌ Erro:", err);
+          
+          if (err.name === "NotAllowedError") {
+            status.textContent = "❌ Permissão negada - Recarregue e permita a câmera";
+            startBtn.textContent = "🔒 Permissão Negada";
+          } else if (err.name === "NotFoundError") {
+            status.textContent = "❌ Nenhuma câmera encontrada no dispositivo";
+            startBtn.textContent = "📷 Sem Câmera";
+          } else if (err.name === "NotReadableError") {
+            status.textContent = "❌ Câmera em uso por outro app - Feche outros apps";
+            startBtn.textContent = "⚠️ Câmera Ocupada";
+          } else {
+            status.textContent = "❌ Erro: " + err.message;
+            startBtn.textContent = "❌ Erro";
+          }
+          
+          startBtn.disabled = false;
+        }
+      }
+
+      // Eventos do marcador
+      marker.addEventListener("markerFound", () => {
+        console.log('🎯 Marcador detectado!');
+        markerVisible = true;
+        status.textContent = "🎉 MARCADOR DETECTADO!";
+        
+        // Garante que o vídeo está tocando
+        if (video.paused) {
+          video.play().catch(err => console.warn('Erro ao tocar vídeo:', err));
+        }
+        
+        updateDebug();
+      });
+
+      marker.addEventListener("markerLost", () => {
+        console.log('👋 Marcador perdido');
+        markerVisible = false;
+        status.textContent = "🔍 Procurando marcador...";
+        updateDebug();
+      });
+
+      // Botão de iniciar
+      startBtn.addEventListener("click", startAR);
+
+      // Detecta se está em ambiente seguro
+      const isSecure = window.location.protocol === "https:" || 
+                       window.location.hostname === "localhost" ||
+                       window.location.hostname === "127.0.0.1";
+
+      if (!isSecure) {
+        status.textContent = "🔒 AVISO: Use HTTPS para melhor compatibilidade";
+      }
+
+      // Log de eventos do vídeo
+      video.addEventListener('loadedmetadata', () => {
+        console.log('📹 Metadados do vídeo carregados:', video.videoWidth, 'x', video.videoHeight);
+        updateDebug();
+      });
+
+      video.addEventListener('play', () => {
+        console.log('▶️ Vídeo começou a tocar');
+        videoPlaying = true;
+        updateDebug();
+      });
+
+      video.addEventListener('pause', () => {
+        console.log('⏸️ Vídeo pausado');
+        videoPlaying = false;
+        updateDebug();
+      });
+
+      // Previne que a tela desligue
+      if ('wakeLock' in navigator) {
+        navigator.wakeLock.request('screen').catch(err => {
+          console.warn('Wake Lock não disponível:', err);
+        });
+      }
+
+      updateDebug();
+    </script>
+  </body>
+</html>
