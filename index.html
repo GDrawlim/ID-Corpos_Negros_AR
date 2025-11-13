@@ -71,7 +71,7 @@
       const plane = document.getElementById("plane");
 
       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      video.src = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
+      video.src = isIOS ? "./video_fallback.mp4" : "./video_transparente.webm";
 
       // Desbloqueio interno de sensores no iOS
       window.addEventListener("touchstart", async () => {
