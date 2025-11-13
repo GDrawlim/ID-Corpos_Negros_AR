@@ -27,8 +27,9 @@
 
       #arjs-video {
         position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
         width: 100% !important;
         height: 100% !important;
         object-fit: cover !important;
@@ -174,7 +175,7 @@
     <a-scene
       embedded
       vr-mode-ui="enabled: false"
-      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; videoTexture: true; sourceWidth: 1280; sourceHeight: 960; displayWidth: 1280; displayHeight: 960;"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; videoTexture: true;"
       renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true; colorManagement: true;"
       gesture-detector
     >
@@ -274,13 +275,19 @@
           const arVideo = document.querySelector('#arjs-video');
           if (arVideo) {
             arVideo.style.position = 'fixed';
-            arVideo.style.top = '0';
-            arVideo.style.left = '0';
+            arVideo.style.top = '50%';
+            arVideo.style.left = '50%';
+            arVideo.style.transform = 'translate(-50%, -50%)';
             arVideo.style.width = '100%';
             arVideo.style.height = '100%';
             arVideo.style.objectFit = 'cover';
             arVideo.style.zIndex = '-1';
+            
+            // Remove qualquer distorção
+            arVideo.style.objectPosition = 'center';
+            
             console.log('📹 Vídeo da câmera ajustado');
+            console.log('📐 Dimensões do vídeo:', arVideo.videoWidth, 'x', arVideo.videoHeight);
           }
           
           const canvas = document.querySelector('.a-canvas');
