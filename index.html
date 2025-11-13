@@ -3,50 +3,166 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
   <style>
     body { margin: 0; overflow: hidden; }
   </style>
 </head>
-<body style="margin:0; overflow:hidden;">
+<body>
   
+  <!-- Vídeo oculto -->
+  <video id="vid" src="./video_transparente.webm" preload="auto" loop muted playsinline webkit-playsinline style="display:none;"></video>
+
   <a-scene
     embedded
-    arjs="sourceType: webcam; debugUIEnabled: false;"
+    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
     vr-mode-ui="enabled: false"
   >
-    <a-assets>
-      <video id="vid" src="./video_transparente.webm" preload="auto" loop muted playsinline webkit-playsinline></video>
-    </a-assets>
-
-    <a-marker type="pattern" url="./marker.patt">
-      <a-video
-        src="#vid"
-        position="0 0.5 0"
+    <a-marker type="pattern" url="./marker.patt" id="marker">
+      <!-- Plane simples, vamos aplicar o material via JS -->
+      <a-plane
+        id="videoPlane"
+        position="0 0 0"
         rotation="-90 0 0"
         width="1"
         height="1.78"
-        material="shader: flat; transparent: true; alphaTest: 0.5;"
-      ></a-video>
+      ></a-plane>
     </a-marker>
 
     <a-entity camera></a-entity>
   </a-scene>
 
+  <div style="position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.8);color:lime;padding:10px;font-family:monospace;font-size:11px;z-index:9999;" id="debug"></div>
+  <div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:9999;" id="status">Carregando...</div>
+
   <script>
     const video = document.getElementById('vid');
-    const marker = document.querySelector('a-marker');
+    const plane = document.getElementById('videoPlane');
+    const marker = document.getElementById('marker');
+    const debug = document.getElementById('debug');
+    const status = document.getElementById('status');
     
-    marker.addEventListener('markerFound', () => {
-      video.play();
+    let markerFound = false;
+    let materialApplied = false;
+
+    function updateDebug() {
+      debug.innerHTML = `
+Video Ready: ${video.readyState >= 3 ? '✅' : '❌'}<br>
+Playing: ${!video.paused ? '✅' : '❌'}<br>
+Size: ${video.videoWidth}x${video.videoHeight}<br>
+Material: ${materialApplied ? '✅' : '❌'}<br>
+Marker: ${markerFound ? '✅' : '❌'}
+      `.trim();
+    }
+
+    // Função que aplica o material com transparência via Three.js
+    function applyVideoMaterial() {
+      if (materialApplied) return;
+
+      const mesh = plane.getObject3D('mesh');
+      if (!mesh || !mesh.material) {
+        console.log('Mesh ainda não pronto, tentando novamente...');
+        setTimeout(applyVideoMaterial, 100);
+        return;
+      }
+
+      console.log('🎬 Aplicando material com transparência...');
+
+      // Cria textura de vídeo
+      const videoTexture = new THREE.VideoTexture(video);
+      videoTexture.minFilter = THREE.LinearFilter;
+      videoTexture.magFilter = THREE.LinearFilter;
+      videoTexture.format = THREE.RGBAFormat;
+
+      // Cria material com transparência
+      const material = new THREE.MeshBasicMaterial({
+        map: videoTexture,
+        transparent: true,
+        alphaTest: 0.5,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        opacity: 1.0
+      });
+
+      // Aplica o material
+      mesh.material = material;
+      mesh.material.needsUpdate = true;
+
+      materialApplied = true;
+      console.log('✅ Material aplicado com sucesso!');
+      updateDebug();
+    }
+
+    // Eventos do vídeo
+    video.addEventListener('loadeddata', () => {
+      console.log('📹 Vídeo carregado:', video.videoWidth, 'x', video.videoHeight);
+      
+      // Ajusta proporção do plane
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        const aspect = video.videoWidth / video.videoHeight;
+        plane.setAttribute('width', 1);
+        plane.setAttribute('height', 1 / aspect);
+      }
+      
+      updateDebug();
     });
 
-    // Auto-play ao carregar
-    document.addEventListener('DOMContentLoaded', () => {
-      video.muted = true;
-      video.play().catch(e => console.log('Aguardando interação'));
+    video.addEventListener('play', () => {
+      console.log('▶️ Vídeo tocando');
+      updateDebug();
     });
+
+    // Quando a scene estiver pronta
+    document.querySelector('a-scene').addEventListener('loaded', () => {
+      console.log('✅ Scene carregada');
+      status.textContent = '🔍 Procurando marcador...';
+      
+      // Aplica o material após 500ms
+      setTimeout(applyVideoMaterial, 500);
+    });
+
+    // Marker encontrado
+    marker.addEventListener('markerFound', () => {
+      markerFound = true;
+      status.textContent = '🎉 Marcador encontrado!';
+      console.log('🎯 Marcador detectado!');
+      
+      // Garante que o material está aplicado
+      if (!materialApplied) {
+        applyVideoMaterial();
+      }
+      
+      // Toca o vídeo
+      video.muted = true;
+      video.play().catch(e => console.error('Play error:', e));
+      
+      updateDebug();
+    });
+
+    marker.addEventListener('markerLost', () => {
+      markerFound = false;
+      status.textContent = '🔍 Procurando marcador...';
+      updateDebug();
+    });
+
+    // Prepara o vídeo
+    window.addEventListener('load', () => {
+      video.muted = true;
+      video.load();
+      
+      // Tenta dar play e pausar (necessário para alguns browsers)
+      video.play().then(() => {
+        video.pause();
+        console.log('✅ Vídeo preparado');
+      }).catch(e => {
+        console.log('Aguardando interação do usuário');
+      });
+    });
+
+    // Atualiza debug a cada segundo
+    setInterval(updateDebug, 1000);
+    updateDebug();
   </script>
 
 </body>
