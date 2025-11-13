@@ -13,14 +13,13 @@
       html, body {
         margin: 0;
         padding: 0;
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
         background: transparent;
       }
 
-      a-scene,
-      a-scene canvas {
+      a-scene, canvas {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
@@ -30,26 +29,10 @@
         background: transparent !important;
         pointer-events: none !important;
       }
-
-      /* 🔹 Botão invisível — sem fundo, sem borda, sem interferir */
-      #unlock {
-        position: fixed;
-        inset: 0;
-        z-index: 2;
-        background: none;
-        border: none;
-        color: transparent;
-        font-size: 1px;
-        pointer-events: auto;
-        touch-action: manipulation;
-      }
     </style>
   </head>
 
   <body>
-    <!-- Botão invisível: cobre toda a tela até o primeiro toque -->
-    <button id="unlock" aria-label="Ativar sensores"></button>
-
     <a-scene
       embedded
       vr-mode-ui="enabled: false"
@@ -86,38 +69,24 @@
       const video = document.getElementById("vid");
       const marker = document.getElementById("marker");
       const plane = document.getElementById("plane");
-      const unlockBtn = document.getElementById("unlock");
 
       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const videoSrc = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
-      video.src = videoSrc;
+      video.src = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
 
-      console.log("🎯 Fonte de vídeo:", videoSrc);
-
-      // 🔓 Permissão iOS + desbloqueio de vídeo
-      async function requestIOSPermissions() {
+      // Desbloqueio interno de sensores no iOS
+      window.addEventListener("touchstart", async () => {
         if (
           typeof DeviceMotionEvent !== "undefined" &&
           typeof DeviceMotionEvent.requestPermission === "function"
         ) {
           try {
-            const res = await DeviceMotionEvent.requestPermission();
-            console.log("Permissão DeviceMotion:", res);
-          } catch (e) {
-            console.warn("Erro ao pedir DeviceMotion:", e);
-          }
+            await DeviceMotionEvent.requestPermission();
+          } catch (e) {}
         }
-
-        // tenta liberar o autoplay do vídeo
         video.play().catch(() => {});
-      }
+      }, { once: true });
 
-      unlockBtn.addEventListener("click", async () => {
-        await requestIOSPermissions();
-        unlockBtn.remove(); // remove o botão totalmente
-      });
-
-      // 🧩 Shader transparente
+      // Shader transparente
       function applyShader() {
         const mesh = plane.getObject3D("mesh");
         if (mesh && mesh.material) {
@@ -147,7 +116,6 @@
             transparent: true,
             side: THREE.DoubleSide,
           });
-
           console.log("✅ Shader transparente aplicado");
         } else {
           setTimeout(applyShader, 500);
@@ -155,8 +123,8 @@
       }
 
       marker.addEventListener("markerFound", () => {
-        console.log("📍 Marcador detectado");
-        video.play().catch((err) => console.warn("⚠️ Erro ao reproduzir vídeo:", err));
+        console.log("📍 Marcador encontrado");
+        video.play().catch(err => console.warn("⚠️ Erro ao reproduzir vídeo:", err));
       });
 
       marker.addEventListener("markerLost", () => {
@@ -164,25 +132,9 @@
       });
 
       video.addEventListener("loadeddata", () => {
-        console.log("🎞️ Vídeo carregado");
+        console.log("🎞️ Vídeo carregado:", video.src);
       });
 
-      // 🔧 Corrige canvas se AR.js recriar
-      function fixCanvas() {
-        const scene = document.querySelector("a-scene");
-        const canvas = scene?.querySelector("canvas");
-        if (canvas) {
-          canvas.style.position = "fixed";
-          canvas.style.top = "0";
-          canvas.style.left = "0";
-          canvas.style.width = "100vw";
-          canvas.style.height = "100vh";
-          canvas.style.zIndex = "0";
-          canvas.style.pointerEvents = "none";
-        }
-      }
-
-      setInterval(fixCanvas, 2000);
       setTimeout(applyShader, 1000);
     </script>
   </body>
