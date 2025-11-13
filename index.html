@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
   <style>
@@ -10,19 +10,17 @@
   </style>
 </head>
 <body>
-  
-  <!-- Vídeo oculto -->
-  <video id="vid" src="./video_transparente.webm" preload="auto" loop muted playsinline webkit-playsinline style="display:none;"></video>
+
+  <video id="vid" src="./video_transparente.webm" loop muted playsinline webkit-playsinline style="display:none;"></video>
 
   <a-scene
     embedded
-    arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+    arjs="sourceType: webcam; debugUIEnabled: false;"
     vr-mode-ui="enabled: false"
   >
     <a-marker type="pattern" url="./marker.patt" id="marker">
-      <!-- Plane simples, vamos aplicar o material via JS -->
       <a-plane
-        id="videoPlane"
+        id="plane"
         position="0 0 0"
         rotation="-90 0 0"
         width="1"
@@ -33,54 +31,36 @@
     <a-entity camera></a-entity>
   </a-scene>
 
-  <div style="position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.8);color:lime;padding:10px;font-family:monospace;font-size:11px;z-index:9999;" id="debug"></div>
-  <div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:9999;" id="status">Carregando...</div>
+  <div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:9999;" id="status">Procurando...</div>
 
   <script>
     const video = document.getElementById('vid');
-    const plane = document.getElementById('videoPlane');
+    const plane = document.getElementById('plane');
     const marker = document.getElementById('marker');
-    const debug = document.getElementById('debug');
     const status = document.getElementById('status');
-    
-    let markerFound = false;
-    let materialApplied = false;
 
-    function updateDebug() {
-      debug.innerHTML = `
-Video Ready: ${video.readyState >= 3 ? '✅' : '❌'}<br>
-Playing: ${!video.paused ? '✅' : '❌'}<br>
-Size: ${video.videoWidth}x${video.videoHeight}<br>
-Material: ${materialApplied ? '✅' : '❌'}<br>
-Marker: ${markerFound ? '✅' : '❌'}
-      `.trim();
-    }
+    let setup = false;
 
-    // Função que aplica o material com transparência via Three.js
-    function applyVideoMaterial() {
-      if (materialApplied) return;
-
+    // ÚNICO lugar que configura o material
+    function setupMaterial() {
+      if (setup) return;
+      
       const mesh = plane.getObject3D('mesh');
-      if (!mesh || !mesh.material) {
-        console.log('Mesh ainda não pronto, tentando novamente...');
-        setTimeout(applyVideoMaterial, 100);
+      if (!mesh) {
+        setTimeout(setupMaterial, 100);
         return;
       }
 
-      console.log('🎬 Aplicando material com transparência...');
+      // Textura do vídeo
+      const texture = new THREE.VideoTexture(video);
+      texture.format = THREE.RGBAFormat;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
 
-      // Cria textura de vídeo com configurações forçadas
-      const videoTexture = new THREE.VideoTexture(video);
-      videoTexture.minFilter = THREE.LinearFilter;
-      videoTexture.magFilter = THREE.LinearFilter;
-      videoTexture.format = THREE.RGBAFormat;
-      videoTexture.generateMipmaps = false;
-      videoTexture.needsUpdate = true;
-
-      // FORÇA shader customizado para transparência
-      const material = new THREE.ShaderMaterial({
+      // Material customizado para forçar transparência
+      mesh.material = new THREE.ShaderMaterial({
         uniforms: {
-          texture: { value: videoTexture }
+          map: { value: texture }
         },
         vertexShader: `
           varying vec2 vUv;
@@ -90,126 +70,41 @@ Marker: ${markerFound ? '✅' : '❌'}
           }
         `,
         fragmentShader: `
-          uniform sampler2D texture;
+          uniform sampler2D map;
           varying vec2 vUv;
           void main() {
-            vec4 color = texture2D(texture, vUv);
-            // Usa o canal alpha do vídeo
-            gl_FragColor = vec4(color.rgb, color.a);
-            // Descarta pixels muito transparentes
-            if (color.a < 0.1) discard;
+            vec4 texColor = texture2D(map, vUv);
+            gl_FragColor = vec4(texColor.rgb, texColor.a);
+            if (texColor.a < 0.1) discard;
           }
         `,
         transparent: true,
-        side: THREE.DoubleSide,
-        depthWrite: false
+        side: THREE.DoubleSide
       });
 
-      // Aplica o material
-      mesh.material = material;
-      mesh.material.needsUpdate = true;
-
-      materialApplied = true;
-      console.log('✅ Material com shader customizado aplicado!');
-      updateDebug();
+      setup = true;
+      console.log('Material aplicado');
     }
 
-    // Eventos do vídeo
-    video.addEventListener('loadeddata', () => {
-      console.log('📹 Vídeo carregado:', video.videoWidth, 'x', video.videoHeight);
-      
-      // Ajusta proporção do plane
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        const aspect = video.videoWidth / video.videoHeight;
-        plane.setAttribute('width', 1);
-        plane.setAttribute('height', 1 / aspect);
-      }
-      
-      updateDebug();
-    });
-
-    video.addEventListener('play', () => {
-      console.log('▶️ Vídeo tocando');
-      updateDebug();
-    });
-
-    // Quando a scene estiver pronta
+    // Quando scene carregar
     document.querySelector('a-scene').addEventListener('loaded', () => {
-      console.log('✅ Scene carregada');
-      status.textContent = '🔍 Procurando marcador...';
-      
-      // Aplica o material após 500ms
-      setTimeout(applyVideoMaterial, 500);
+      setTimeout(setupMaterial, 500);
     });
 
-    // Marker encontrado
+    // Quando achar marcador
     marker.addEventListener('markerFound', () => {
-      markerFound = true;
-      status.textContent = '🎉 Marcador encontrado!';
-      console.log('🎯 Marcador detectado!');
-      
-      // Garante que o material está aplicado
-      if (!materialApplied) {
-        applyVideoMaterial();
-      }
-      
-      // Força o play do vídeo
-      if (video.paused) {
-        video.muted = true;
-        video.currentTime = 0;
-        
-        video.play()
-          .then(() => {
-            console.log('✅ Vídeo tocando!');
-            updateDebug();
-          })
-          .catch(e => {
-            console.error('❌ Erro ao tocar:', e);
-            // Tenta novamente após 100ms
-            setTimeout(() => {
-              video.play().catch(err => console.error('Retry failed:', err));
-            }, 100);
-          });
-      }
-      
-      updateDebug();
+      status.textContent = '✅ Marcador encontrado!';
+      if (!setup) setupMaterial();
+      video.play();
     });
 
     marker.addEventListener('markerLost', () => {
-      markerFound = false;
-      status.textContent = '🔍 Procurando marcador...';
-      updateDebug();
+      status.textContent = '🔍 Procurando...';
     });
 
-    // Prepara o vídeo
-    window.addEventListener('load', () => {
-      video.muted = true;
-      video.volume = 0;
-      video.load();
-      
-      // IMPORTANTE: Tenta dar play após interação do usuário
-      document.body.addEventListener('click', () => {
-        if (video.paused) {
-          video.play().then(() => {
-            video.pause();
-            console.log('✅ Vídeo preparado após click');
-          }).catch(e => console.log('Prep erro:', e));
-        }
-      }, { once: true });
-      
-      document.body.addEventListener('touchstart', () => {
-        if (video.paused) {
-          video.play().then(() => {
-            video.pause();
-            console.log('✅ Vídeo preparado após touch');
-          }).catch(e => console.log('Prep erro:', e));
-        }
-      }, { once: true });
-    });
-
-    // Atualiza debug a cada segundo
-    setInterval(updateDebug, 1000);
-    updateDebug();
+    // Prepara vídeo (uma vez só)
+    video.muted = true;
+    video.load();
   </script>
 
 </body>
