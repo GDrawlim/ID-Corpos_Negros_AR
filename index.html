@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>AR Vídeo Transparente</title>
 
-    <!-- Libs -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
@@ -13,10 +12,24 @@
       html, body {
         margin: 0;
         padding: 0;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
-        width: 100vw;
-        height: 100vh;
-        background: transparent;
+        background: black;
+      }
+
+      #start {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: black;
+        color: white;
+        font-family: sans-serif;
+        font-size: 20px;
+        cursor: pointer;
+        z-index: 9999;
       }
 
       a-scene, a-scene canvas {
@@ -25,19 +38,22 @@
         left: 0 !important;
         width: 100vw !important;
         height: 100vh !important;
-        z-index: 0 !important;
         background: transparent !important;
-        pointer-events: none !important;
+        z-index: 0 !important;
       }
     </style>
   </head>
 
   <body>
+    <div id="start">👉 Toque para iniciar AR</div>
+
     <a-scene
+      id="scene"
       embedded
       vr-mode-ui="enabled: false"
       arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
       renderer="logarithmicDepthBuffer: true; alpha: true; precision: medium; antialias: true;"
+      style="display: none;"
     >
       <a-assets>
         <video
@@ -65,18 +81,16 @@
     </a-scene>
 
     <script>
+      const startBtn = document.getElementById("start");
+      const scene = document.getElementById("scene");
       const video = document.getElementById("vid");
       const plane = document.getElementById("plane");
       const marker = document.getElementById("marker");
 
-      // 🔍 detecta iPhone / iPad
       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const videoSrc = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
       video.src = videoSrc;
 
-      console.log("🎬 Usando vídeo:", videoSrc);
-
-      // 🔧 Cria a textura de vídeo e aplica o shader transparente
       function setupVideoTexture() {
         const mesh = plane.getObject3D("mesh");
         if (!mesh) return setTimeout(setupVideoTexture, 500);
@@ -107,48 +121,34 @@
           transparent: true,
           side: THREE.DoubleSide,
         });
-
-        console.log("✅ Shader de transparência aplicado");
       }
 
-      setupVideoTexture();
-
-      // 🎥 Força o vídeo a iniciar em dispositivos iOS
-      function unlockVideo() {
+      function startAR() {
+        startBtn.style.display = "none";
+        scene.style.display = "block";
+        setupVideoTexture();
         video.play().catch(() => {});
-        window.removeEventListener("touchstart", unlockVideo);
-        window.removeEventListener("click", unlockVideo);
       }
-      window.addEventListener("touchstart", unlockVideo);
-      window.addEventListener("click", unlockVideo);
 
-      // 📍 Quando marcador é encontrado, toca o vídeo
-      marker.addEventListener("markerFound", () => {
-        console.log("📍 Marcador detectado");
-        video.play().catch((err) => console.warn("⚠️ Erro ao tocar vídeo:", err));
+      // ⚙️ Ativa AR após toque
+      startBtn.addEventListener("click", () => {
+        // iOS sensor permission
+        if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
+          DeviceMotionEvent.requestPermission().catch(() => {
+            alert("Ative o acesso aos sensores para continuar com a AR.");
+          });
+        }
+
+        startAR();
       });
 
+      // 🎯 Tocar vídeo ao detectar marcador
+      marker.addEventListener("markerFound", () => {
+        video.play().catch(() => {});
+      });
       marker.addEventListener("markerLost", () => {
-        console.log("🔍 Marcador perdido");
         video.pause();
       });
-
-      // 🧹 Mantém o canvas fixo na tela
-      function fixCanvas() {
-        const scene = document.querySelector("a-scene");
-        const canvas = scene?.querySelector("canvas");
-        if (canvas) {
-          canvas.style.position = "fixed";
-          canvas.style.top = "0";
-          canvas.style.left = "0";
-          canvas.style.width = "100vw";
-          canvas.style.height = "100vh";
-          canvas.style.zIndex = "0";
-          canvas.style.pointerEvents = "none";
-        }
-      }
-
-      setInterval(fixCanvas, 2000);
     </script>
   </body>
 </html>
