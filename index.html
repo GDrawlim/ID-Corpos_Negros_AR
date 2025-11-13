@@ -3,86 +3,92 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>AR Vídeo Transparente com Fallback iOS</title>
+    <title>AR Vídeo Transparente</title>
 
+    <!-- A-Frame e AR.js -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
     <style>
-      body {
+      html, body {
         margin: 0;
+        padding: 0;
         overflow: hidden;
-        background: black;
         width: 100%;
         height: 100%;
+        background: transparent;
+        position: fixed;
       }
 
-      #startScreen {
+      /* Cena AR */
+      a-scene.ar-scene {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 1 !important;
+      }
+
+      /* Canvas não captura eventos (permite clicar na UI) */
+      a-scene canvas {
+        pointer-events: none !important;
+      }
+
+      /* Camada da UI */
+      .ui-layer {
         position: fixed;
-        inset: 0;
-        background: black;
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
         z-index: 9999;
-      }
-
-      #startBtn {
-        padding: 10px 20px;
-        font-size: 16px;
-        border: none;
-        border-radius: 5px;
-        background: limegreen;
+        top: 0;
+        left: 0;
+        width: 100%;
         color: white;
-        cursor: pointer;
-        margin-top: 10px;
-      }
-
-      #status {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 12px 24px;
-        border-radius: 25px;
-        font-size: 14px;
-        z-index: 9998;
+        font-family: monospace;
+        pointer-events: auto;
       }
 
       #debug {
-        position: fixed;
+        background: rgba(0, 0, 0, 0.7);
+        color: lime;
+        padding: 8px 10px;
+        border-radius: 5px;
+        font-size: 11px;
+        position: absolute;
         top: 10px;
         left: 10px;
+        text-align: left;
+      }
+
+      #status {
         background: rgba(0, 0, 0, 0.8);
-        color: lime;
-        padding: 10px;
-        font-family: monospace;
-        font-size: 11px;
-        border-radius: 5px;
-        z-index: 9998;
+        color: #fff;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-size: 14px;
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        min-width: 200px;
+        text-align: center;
       }
     </style>
   </head>
-  <body>
 
-    <!-- Tela de início -->
-    <div id="startScreen">
-      <p>Toque para iniciar a experiência AR</p>
-      <button id="startBtn">Iniciar</button>
+  <body>
+    <!-- Camada de interface -->
+    <div class="ui-layer">
+      <div id="debug"></div>
+      <div id="status">Aguardando...</div>
     </div>
 
-    <div id="debug"></div>
-    <div id="status">Aguardando...</div>
-
+    <!-- Cena AR -->
     <a-scene
+      class="ar-scene"
       embedded
       vr-mode-ui="enabled: false"
-      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
       renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
     >
       <a-assets>
         <video
@@ -103,7 +109,7 @@
           rotation="-90 0 0"
           width="1"
           height="1.78"
-          material="src: #vid; shader: flat; transparent: true; side: double;"
+          material="shader: flat; transparent: true; side: double;"
         ></a-plane>
       </a-marker>
 
@@ -116,43 +122,26 @@
       const plane = document.getElementById('plane');
       const debug = document.getElementById('debug');
       const status = document.getElementById('status');
-      const startScreen = document.getElementById('startScreen');
-      const startBtn = document.getElementById('startBtn');
 
       let markerFound = false;
 
-      // === Detecta se é iPhone / iPad (iOS) ===
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+      // 🔍 Detecta se é iPhone / iPad
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const videoSrc = isIOS ? './video_transparente.webp' : './video_transparente.webm';
+      video.src = videoSrc;
 
-      // Define o vídeo correto
-      const videoFile = isIOS ? './video_transparente.webp' : './video_transparente.webm';
-      video.src = videoFile;
-
-      console.log(`🎥 Carregando vídeo: ${videoFile}`);
-      console.log(`📱 iOS detectado? ${isIOS}`);
-
+      // 🧠 Atualiza painel de debug
       function updateDebug() {
         debug.innerHTML = `
-Video: ${video.readyState >= 3 ? '✅ pronto' : '⏳ carregando'}<br>
-Playing: ${!video.paused ? '▶️ tocando' : '⏸️ parado'}<br>
-Arquivo: ${videoFile}<br>
-Marker: ${markerFound ? '✅ encontrado' : '🔍 procurando'}
+Video: ${video.readyState >= 3 ? '✅' : '⏳'}<br>
+Playing: ${!video.paused ? '▶️' : '⏸️'}<br>
+Src: ${videoSrc.split('/').pop()}<br>
+Marker: ${markerFound ? '✅ FOUND' : '🔍 Searching'}
         `.trim();
       }
 
-      // Desbloqueia o autoplay
-      startBtn.addEventListener('click', () => {
-        video.play().then(() => {
-          video.pause();
-          startScreen.style.display = 'none';
-          status.textContent = '🔍 Procurando marcador...';
-          console.log('🎬 Autoplay desbloqueado');
-        }).catch(err => console.warn('⚠️ Erro ao liberar autoplay:', err));
-      });
-
-      // Aplica shader de transparência (para WebM com alpha)
-      setTimeout(() => {
+      // 🎨 Aplica shader com transparência
+      function applyShader() {
         const mesh = plane.getObject3D('mesh');
         if (mesh && mesh.material) {
           const texture = new THREE.VideoTexture(video);
@@ -182,32 +171,36 @@ Marker: ${markerFound ? '✅ encontrado' : '🔍 procurando'}
             side: THREE.DoubleSide
           });
           console.log('✅ Shader aplicado');
+        } else {
+          console.warn('⚠️ Mesh ainda não disponível. Tentando novamente...');
+          setTimeout(applyShader, 500);
         }
-      }, 1000);
+      }
 
+      // 🧭 Eventos
       video.addEventListener('loadeddata', () => {
-        console.log('🎞️ Vídeo carregado');
+        console.log('🎞️ Vídeo carregado:', videoSrc);
         updateDebug();
       });
 
       marker.addEventListener('markerFound', () => {
         markerFound = true;
         status.textContent = '🎉 Marcador encontrado!';
-        console.log('Marcador encontrado');
-        video.play().catch(err => console.warn('Não pôde reproduzir vídeo:', err));
+        console.log('📍 Marcador encontrado');
+        video.play().catch(err => console.warn('⚠️ Falha ao reproduzir vídeo:', err));
         updateDebug();
       });
 
       marker.addEventListener('markerLost', () => {
         markerFound = false;
         status.textContent = '🔍 Procurando marcador...';
-        video.pause();
         updateDebug();
       });
 
+      // 🕐 Inicialização
+      setTimeout(applyShader, 1000);
       setInterval(updateDebug, 1000);
       updateDebug();
     </script>
-
   </body>
 </html>
