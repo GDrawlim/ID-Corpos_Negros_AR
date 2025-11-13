@@ -1,141 +1,31 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>AR Vídeo Transparente</title>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js';
+import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/webxr/ARButton.js';
 
-    <!-- A-Frame e AR.js -->
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera();
+const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+renderer.xr.enabled = true;
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
 
-    <style>
-      html, body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: transparent;
-      }
+const video = document.createElement('video');
+video.src = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? './video_transparente.mov' : './video_transparente.webm';
+video.loop = true;
+video.muted = true;
+video.playsInline = true;
 
-      a-scene, canvas {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        z-index: 0 !important;
-        background: transparent !important;
-        pointer-events: none !important;
-      }
-    </style>
-  </head>
+const texture = new THREE.VideoTexture(video);
+const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+const geometry = new THREE.PlaneGeometry(1, 1.78);
+const mesh = new THREE.Mesh(geometry, material);
+mesh.position.set(0, 0, -1.5);
+scene.add(mesh);
 
-  <body>
-    <a-scene
-      embedded
-      vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true; antialias: true; precision: medium; alpha: true;"
-      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-    >
-      <a-assets>
-        <video
-          id="vid"
-          preload="auto"
-          loop
-          muted
-          playsinline
-          webkit-playsinline
-          crossorigin="anonymous"
-        ></video>
-      </a-assets>
+renderer.xr.addEventListener('sessionstart', () => video.play());
 
-      <a-marker type="pattern" url="./marker.patt" id="marker">
-        <a-plane
-          id="plane"
-          position="0 0 0"
-          rotation="-90 0 0"
-          width="1"
-          height="1.78"
-          material="shader: flat; transparent: true; side: double;"
-        ></a-plane>
-      </a-marker>
-
-      <a-entity camera></a-entity>
-    </a-scene>
-
-    <script>
-      const video = document.getElementById("vid");
-      const marker = document.getElementById("marker");
-      const plane = document.getElementById("plane");
-
-      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      video.src = isIOS ? "./video_fallback.mp4" : "./video_transparente.webm";
-
-      // Desbloqueio interno de sensores no iOS
-      window.addEventListener("touchstart", async () => {
-        if (
-          typeof DeviceMotionEvent !== "undefined" &&
-          typeof DeviceMotionEvent.requestPermission === "function"
-        ) {
-          try {
-            await DeviceMotionEvent.requestPermission();
-          } catch (e) {}
-        }
-        video.play().catch(() => {});
-      }, { once: true });
-
-      // Shader transparente
-      function applyShader() {
-        const mesh = plane.getObject3D("mesh");
-        if (mesh && mesh.material) {
-          const texture = new THREE.VideoTexture(video);
-          texture.format = THREE.RGBAFormat;
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-
-          mesh.material = new THREE.ShaderMaterial({
-            uniforms: { map: { value: texture } },
-            vertexShader: `
-              varying vec2 vUv;
-              void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-              }
-            `,
-            fragmentShader: `
-              uniform sampler2D map;
-              varying vec2 vUv;
-              void main() {
-                vec4 color = texture2D(map, vUv);
-                if (color.a < 0.1) discard;
-                gl_FragColor = vec4(color.rgb, color.a);
-              }
-            `,
-            transparent: true,
-            side: THREE.DoubleSide,
-          });
-          console.log("✅ Shader transparente aplicado");
-        } else {
-          setTimeout(applyShader, 500);
-        }
-      }
-
-      marker.addEventListener("markerFound", () => {
-        console.log("📍 Marcador encontrado");
-        video.play().catch(err => console.warn("⚠️ Erro ao reproduzir vídeo:", err));
-      });
-
-      marker.addEventListener("markerLost", () => {
-        console.log("🔍 Marcador perdido");
-      });
-
-      video.addEventListener("loadeddata", () => {
-        console.log("🎞️ Vídeo carregado:", video.src);
-      });
-
-      setTimeout(applyShader, 1000);
-    </script>
-  </body>
-</html>
+renderer.setAnimationLoop(() => {
+  renderer.render(scene, camera);
+});
+</script>
