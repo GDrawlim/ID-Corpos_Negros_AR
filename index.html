@@ -221,7 +221,9 @@
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         debug.innerHTML = `
 📱 Device: ${isMobile ? 'Mobile' : 'Desktop'}<br>
-📹 Video: ${video.readyState >= 3 ? '✅' : '⏳'}<br>
+📹 Video Ready: ${video.readyState >= 3 ? '✅' : '⏳ ' + video.readyState}<br>
+▶️ Playing: ${!video.paused ? '✅' : '❌'}<br>
+📐 Size: ${video.videoWidth}x${video.videoHeight}<br>
 🎯 Marker: ${markerFound ? '✅ FOUND' : '🔍 Searching'}<br>
 ⚡ Status: ${info || 'Ready'}
         `.trim();
@@ -230,7 +232,25 @@
       // Eventos do vídeo
       video.addEventListener('loadeddata', () => {
         console.log('📹 Vídeo carregado');
+        console.log('📐 Dimensões:', video.videoWidth, 'x', video.videoHeight);
         updateDebug('Video loaded');
+        
+        // Ajusta proporção do plane baseado no vídeo
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          const aspect = video.videoWidth / video.videoHeight;
+          const plane = document.getElementById('plane');
+          plane.setAttribute('width', aspect * 1.0);
+          plane.setAttribute('height', 1.0);
+          console.log('📏 Aspect ratio:', aspect);
+        }
+      });
+
+      video.addEventListener('loadedmetadata', () => {
+        console.log('📊 Metadata carregado');
+      });
+
+      video.addEventListener('canplay', () => {
+        console.log('✅ Vídeo pode tocar');
       });
 
       video.addEventListener('play', () => {
@@ -240,7 +260,8 @@
 
       video.addEventListener('error', (e) => {
         console.error('❌ Video error:', e);
-        status.textContent = '❌ Erro ao carregar vídeo';
+        console.error('Error details:', video.error);
+        status.textContent = '❌ Erro ao carregar vídeo: ' + (video.error ? video.error.message : 'Unknown');
       });
 
       // Eventos da scene
@@ -278,17 +299,26 @@
       marker.addEventListener('markerFound', async () => {
         markerFound = true;
         console.log('🎯 MARKER FOUND!');
+        console.log('Video state:', {
+          paused: video.paused,
+          readyState: video.readyState,
+          src: video.src,
+          width: video.videoWidth,
+          height: video.videoHeight
+        });
         status.textContent = '🎉 Marcador encontrado!';
         updateDebug('Marker detected');
 
         try {
           if (video.paused) {
             video.muted = true;
+            video.currentTime = 0;
             await video.play();
             console.log('✅ Video playing');
           }
         } catch (e) {
-          console.warn('Play error:', e);
+          console.error('❌ Play error:', e);
+          status.textContent = '⚠️ Erro ao tocar vídeo: ' + e.message;
         }
       });
 
