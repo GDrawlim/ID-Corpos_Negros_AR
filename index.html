@@ -69,20 +69,40 @@ Marker: ${markerFound ? '✅' : '❌'}
 
       console.log('🎬 Aplicando material com transparência...');
 
-      // Cria textura de vídeo
+      // Cria textura de vídeo com configurações forçadas
       const videoTexture = new THREE.VideoTexture(video);
       videoTexture.minFilter = THREE.LinearFilter;
       videoTexture.magFilter = THREE.LinearFilter;
       videoTexture.format = THREE.RGBAFormat;
+      videoTexture.generateMipmaps = false;
+      videoTexture.needsUpdate = true;
 
-      // Cria material com transparência
-      const material = new THREE.MeshBasicMaterial({
-        map: videoTexture,
+      // FORÇA shader customizado para transparência
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          texture: { value: videoTexture }
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D texture;
+          varying vec2 vUv;
+          void main() {
+            vec4 color = texture2D(texture, vUv);
+            // Usa o canal alpha do vídeo
+            gl_FragColor = vec4(color.rgb, color.a);
+            // Descarta pixels muito transparentes
+            if (color.a < 0.1) discard;
+          }
+        `,
         transparent: true,
-        alphaTest: 0.5,
         side: THREE.DoubleSide,
-        depthWrite: false,
-        opacity: 1.0
+        depthWrite: false
       });
 
       // Aplica o material
@@ -90,7 +110,7 @@ Marker: ${markerFound ? '✅' : '❌'}
       mesh.material.needsUpdate = true;
 
       materialApplied = true;
-      console.log('✅ Material aplicado com sucesso!');
+      console.log('✅ Material com shader customizado aplicado!');
       updateDebug();
     }
 
