@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>AR Vídeo Transparente</title>
 
-    <!-- A-Frame + AR.js -->
+    <!-- A-Frame e AR.js -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
@@ -19,7 +19,8 @@
         background: transparent;
       }
 
-      a-scene, a-scene canvas {
+      a-scene,
+      a-scene canvas {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
@@ -29,16 +30,20 @@
         background: transparent !important;
         pointer-events: none !important;
       }
+
+      * {
+        user-select: none;
+        touch-action: none;
+      }
     </style>
   </head>
 
   <body>
     <a-scene
-      id="scene"
       embedded
       vr-mode-ui="enabled: false"
-      arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
-      renderer="logarithmicDepthBuffer: true; alpha: true; precision: medium; antialias: true;"
+      renderer="logarithmicDepthBuffer: true; antialias: true; precision: medium; alpha: true;"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
     >
       <a-assets>
         <video
@@ -52,9 +57,10 @@
         ></video>
       </a-assets>
 
-      <a-marker id="marker" type="pattern" url="./marker.patt">
+      <a-marker type="pattern" url="./marker.patt" id="marker">
         <a-plane
           id="plane"
+          position="0 0 0"
           rotation="-90 0 0"
           width="1"
           height="1.78"
@@ -66,81 +72,95 @@
     </a-scene>
 
     <script>
+      // Safari iOS: desbloquear sensores e vídeo no primeiro toque
+      async function requestIOSPermissions() {
+        if (
+          typeof DeviceMotionEvent !== "undefined" &&
+          typeof DeviceMotionEvent.requestPermission === "function"
+        ) {
+          try {
+            const res = await DeviceMotionEvent.requestPermission();
+            console.log("Permissão DeviceMotion:", res);
+          } catch (e) {
+            console.warn("Erro ao pedir DeviceMotion:", e);
+          }
+        }
+
+        const vid = document.querySelector("video");
+        if (vid) {
+          vid.play().catch(() => {});
+        }
+      }
+
+      // chama uma única vez no primeiro toque, invisível
+      window.addEventListener("touchstart", () => {
+        requestIOSPermissions();
+      }, { once: true });
+
+      // --- Lógica principal AR ---
       const video = document.getElementById("vid");
-      const plane = document.getElementById("plane");
       const marker = document.getElementById("marker");
+      const plane = document.getElementById("plane");
 
       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const videoSrc = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
       video.src = videoSrc;
 
-      console.log("🎥 Vídeo carregado:", videoSrc);
+      console.log("🎯 Fonte de vídeo:", videoSrc);
 
-      // Cria textura e aplica o shader
-      function setupVideoTexture() {
+      // Shader transparente
+      function applyShader() {
         const mesh = plane.getObject3D("mesh");
-        if (!mesh) return setTimeout(setupVideoTexture, 500);
+        if (mesh && mesh.material) {
+          const texture = new THREE.VideoTexture(video);
+          texture.format = THREE.RGBAFormat;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
 
-        const texture = new THREE.VideoTexture(video);
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.format = THREE.RGBAFormat;
+          mesh.material = new THREE.ShaderMaterial({
+            uniforms: { map: { value: texture } },
+            vertexShader: `
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `,
+            fragmentShader: `
+              uniform sampler2D map;
+              varying vec2 vUv;
+              void main() {
+                vec4 color = texture2D(map, vUv);
+                if (color.a < 0.1) discard;
+                gl_FragColor = vec4(color.rgb, color.a);
+              }
+            `,
+            transparent: true,
+            side: THREE.DoubleSide,
+          });
 
-        mesh.material = new THREE.ShaderMaterial({
-          uniforms: { map: { value: texture } },
-          vertexShader: `
-            varying vec2 vUv;
-            void main() {
-              vUv = uv;
-              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-          `,
-          fragmentShader: `
-            uniform sampler2D map;
-            varying vec2 vUv;
-            void main() {
-              vec4 color = texture2D(map, vUv);
-              if (color.a < 0.1) discard;
-              gl_FragColor = vec4(color.rgb, color.a);
-            }
-          `,
-          transparent: true,
-          side: THREE.DoubleSide,
-        });
-
-        console.log("✅ Shader aplicado");
-      }
-
-      setupVideoTexture();
-
-      // Safari exige um toque para liberar sensores e vídeo
-      function unlockEverything() {
-        if (typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function") {
-          DeviceMotionEvent.requestPermission().catch(() => {});
+          console.log("✅ Shader transparente aplicado");
+        } else {
+          setTimeout(applyShader, 500);
         }
-        video.play().catch(() => {});
-        window.removeEventListener("touchstart", unlockEverything);
-        window.removeEventListener("click", unlockEverything);
       }
 
-      // Detecta o primeiro toque (sem UI)
-      window.addEventListener("touchstart", unlockEverything, { once: true });
-      window.addEventListener("click", unlockEverything, { once: true });
-
-      // Marker detection logic
       marker.addEventListener("markerFound", () => {
         console.log("📍 Marcador detectado");
-        video.play().catch(() => {});
+        video.play().catch((err) => console.warn("⚠️ Erro ao reproduzir vídeo:", err));
       });
 
       marker.addEventListener("markerLost", () => {
         console.log("🔍 Marcador perdido");
-        video.pause();
       });
 
-      // Corrige canvas se AR.js recriar
-      setInterval(() => {
-        const canvas = document.querySelector("a-scene canvas");
+      video.addEventListener("loadeddata", () => {
+        console.log("🎞️ Vídeo carregado");
+      });
+
+      function fixCanvas() {
+        const scene = document.querySelector("a-scene");
+        const canvas = scene?.querySelector("canvas");
         if (canvas) {
           canvas.style.position = "fixed";
           canvas.style.top = "0";
@@ -150,7 +170,10 @@
           canvas.style.zIndex = "0";
           canvas.style.pointerEvents = "none";
         }
-      }, 2000);
+      }
+
+      setInterval(fixCanvas, 2000);
+      setTimeout(applyShader, 1000);
     </script>
   </body>
 </html>
