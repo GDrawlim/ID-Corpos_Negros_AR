@@ -31,14 +31,25 @@
         pointer-events: none !important;
       }
 
-      * {
-        user-select: none;
-        touch-action: none;
+      /* 🔹 Botão invisível — sem fundo, sem borda, sem interferir */
+      #unlock {
+        position: fixed;
+        inset: 0;
+        z-index: 2;
+        background: none;
+        border: none;
+        color: transparent;
+        font-size: 1px;
+        pointer-events: auto;
+        touch-action: manipulation;
       }
     </style>
   </head>
 
   <body>
+    <!-- Botão invisível: cobre toda a tela até o primeiro toque -->
+    <button id="unlock" aria-label="Ativar sensores"></button>
+
     <a-scene
       embedded
       vr-mode-ui="enabled: false"
@@ -72,7 +83,18 @@
     </a-scene>
 
     <script>
-      // Safari iOS: desbloquear sensores e vídeo no primeiro toque
+      const video = document.getElementById("vid");
+      const marker = document.getElementById("marker");
+      const plane = document.getElementById("plane");
+      const unlockBtn = document.getElementById("unlock");
+
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const videoSrc = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
+      video.src = videoSrc;
+
+      console.log("🎯 Fonte de vídeo:", videoSrc);
+
+      // 🔓 Permissão iOS + desbloqueio de vídeo
       async function requestIOSPermissions() {
         if (
           typeof DeviceMotionEvent !== "undefined" &&
@@ -86,29 +108,16 @@
           }
         }
 
-        const vid = document.querySelector("video");
-        if (vid) {
-          vid.play().catch(() => {});
-        }
+        // tenta liberar o autoplay do vídeo
+        video.play().catch(() => {});
       }
 
-      // chama uma única vez no primeiro toque, invisível
-      window.addEventListener("touchstart", () => {
-        requestIOSPermissions();
-      }, { once: true });
+      unlockBtn.addEventListener("click", async () => {
+        await requestIOSPermissions();
+        unlockBtn.remove(); // remove o botão totalmente
+      });
 
-      // --- Lógica principal AR ---
-      const video = document.getElementById("vid");
-      const marker = document.getElementById("marker");
-      const plane = document.getElementById("plane");
-
-      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const videoSrc = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
-      video.src = videoSrc;
-
-      console.log("🎯 Fonte de vídeo:", videoSrc);
-
-      // Shader transparente
+      // 🧩 Shader transparente
       function applyShader() {
         const mesh = plane.getObject3D("mesh");
         if (mesh && mesh.material) {
@@ -158,6 +167,7 @@
         console.log("🎞️ Vídeo carregado");
       });
 
+      // 🔧 Corrige canvas se AR.js recriar
       function fixCanvas() {
         const scene = document.querySelector("a-scene");
         const canvas = scene?.querySelector("canvas");
