@@ -1,31 +1,106 @@
-<script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js';
-import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/webxr/ARButton.js';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      background: #000;
+    }
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera();
-const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-renderer.xr.enabled = true;
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
+    #camera {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 1;
+      background: #000;
+    }
 
-const video = document.createElement('video');
-video.src = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? './video_transparente.mov' : './video_transparente.webm';
-video.loop = true;
-video.muted = true;
-video.playsInline = true;
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      pointer-events: none;
+    }
 
-const texture = new THREE.VideoTexture(video);
-const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-const geometry = new THREE.PlaneGeometry(1, 1.78);
-const mesh = new THREE.Mesh(geometry, material);
-mesh.position.set(0, 0, -1.5);
-scene.add(mesh);
+    video.overlay-video {
+      width: 60vw;
+      max-width: 400px;
+      aspect-ratio: 16 / 9;
+      pointer-events: none;
+      mix-blend-mode: normal;
+    }
 
-renderer.xr.addEventListener('sessionstart', () => video.play());
+    /* botão invisível para desbloquear autoplay no iOS */
+    #unlock {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      z-index: 999;
+      border: none;
+      background: transparent;
+    }
+  </style>
+</head>
 
-renderer.setAnimationLoop(() => {
-  renderer.render(scene, camera);
-});
-</script>
+<body>
+  <video id="camera" autoplay playsinline muted></video>
+
+  <div id="overlay">
+    <video id="videoOverlay" class="overlay-video" autoplay loop muted playsinline></video>
+  </div>
+
+  <button id="unlock"></button>
+
+  <script>
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+        const videoEl = document.getElementById('camera');
+        videoEl.srcObject = stream;
+      } catch (err) {
+        console.error('Erro ao iniciar câmera:', err);
+      }
+    }
+
+    // detecta se é iPhone
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    // escolhe o formato compatível
+    const overlay = document.getElementById("videoOverlay");
+    overlay.src = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
+
+    // inicia câmera
+    startCamera();
+
+    // botão invisível pra desbloquear autoplay e sensores
+    const unlockBtn = document.getElementById("unlock");
+    unlockBtn.addEventListener("touchstart", async () => {
+      unlockBtn.remove(); // tira o botão invisível
+      try {
+        if (typeof DeviceMotionEvent !== "undefined" &&
+            typeof DeviceMotionEvent.requestPermission === "function") {
+          await DeviceMotionEvent.requestPermission();
+        }
+      } catch (e) {
+        console.warn("DeviceMotion permission error:", e);
+      }
+      overlay.play().catch(()=>{});
+    }, { once: true });
+  </script>
+</body>
+</html>
