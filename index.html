@@ -2,53 +2,16 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <title>AR Marker + Vídeo Transparente</title>
-    <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.0/aframe/build/aframe-ar.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>AR Vídeo Transparente</title>
+    
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
     <style>
-      * {
+      body {
         margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
-      html, body {
-        width: 100%;
-        height: 100%;
         overflow: hidden;
-        position: fixed;
-      }
-
-      /* FORÇA CANVAS EM TELA CHEIA */
-      canvas {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        object-fit: cover !important;
-      }
-
-      .a-canvas {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-      }
-
-      a-scene {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-      }
-
-      #arjsDebugUIContainer {
-        display: none !important;
       }
 
       #overlay {
@@ -57,70 +20,72 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.95);
-        z-index: 10000;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 9999;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 20px;
+        font-family: Arial, sans-serif;
       }
 
       #overlay.hidden {
-        display: none !important;
+        display: none;
       }
 
-      .info-box {
-        background: #fff;
-        border-radius: 12px;
-        padding: 24px;
+      .box {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        text-align: center;
         max-width: 90%;
         width: 400px;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       }
 
-      .info-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
+      .box h2 {
+        margin: 0 0 15px 0;
+        font-size: 24px;
       }
 
-      .info-title {
-        font-size: 20px;
-        font-weight: bold;
-        margin-bottom: 12px;
-        color: #333;
-      }
-
-      .info-message {
-        font-size: 14px;
+      .box p {
         color: #666;
-        line-height: 1.6;
-        margin-bottom: 20px;
+        margin: 0 0 20px 0;
+        line-height: 1.5;
       }
 
       #startBtn {
-        padding: 14px 32px;
-        font-size: 16px;
+        padding: 15px 40px;
+        font-size: 18px;
         font-weight: bold;
         border: none;
         border-radius: 8px;
         background: #4CAF50;
         color: white;
         cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-        transition: all 0.3s;
-        -webkit-tap-highlight-color: transparent;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.2);
       }
 
-      #startBtn:active {
-        transform: scale(0.95);
+      #startBtn:hover {
+        background: #45a049;
       }
 
       #startBtn:disabled {
         background: #ccc;
         cursor: not-allowed;
-        transform: none;
+      }
+
+      #debug {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: lime;
+        padding: 10px;
+        font-family: monospace;
+        font-size: 11px;
+        border-radius: 5px;
+        z-index: 9998;
+        max-width: 250px;
+        line-height: 1.4;
       }
 
       #status {
@@ -128,88 +93,40 @@
         bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
-        z-index: 9999;
-        padding: 12px 24px;
+        background: rgba(0, 0, 0, 0.8);
         color: white;
-        font-size: 13px;
-        background: rgba(0, 0, 0, 0.85);
-        border-radius: 20px;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-size: 14px;
+        z-index: 9998;
         text-align: center;
         min-width: 200px;
-        max-width: 90%;
-        backdrop-filter: blur(10px);
-      }
-
-      #debugInfo {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.85);
-        color: #0f0;
-        padding: 8px;
-        border-radius: 6px;
-        font-size: 10px;
-        font-family: monospace;
-        z-index: 9998;
-        max-width: 200px;
-        line-height: 1.4;
-      }
-
-      @media (max-width: 600px) {
-        #debugInfo {
-          font-size: 9px;
-          padding: 6px;
-          max-width: 150px;
-        }
       }
     </style>
   </head>
   <body>
     <div id="overlay">
-      <div class="info-box">
-        <div class="info-icon">📸</div>
-        <div class="info-title">Realidade Aumentada</div>
-        <div class="info-message">
-          Permita o acesso à câmera para iniciar a experiência AR.
-        </div>
-        <button id="startBtn">🚀 Iniciar AR</button>
+      <div class="box">
+        <h2>📱 AR Vídeo Transparente</h2>
+        <p>Permita o acesso à câmera para iniciar a experiência de realidade aumentada.</p>
+        <button id="startBtn">🚀 Iniciar</button>
       </div>
     </div>
 
+    <div id="debug"></div>
     <div id="status">Aguardando...</div>
-    <div id="debugInfo"></div>
 
-    <!-- Componente customizado para transparência -->
+    <!-- Componente customizado para vídeo com transparência -->
     <script>
-      AFRAME.registerComponent('video-alpha', {
+      AFRAME.registerComponent('alpha-video', {
         schema: {
           src: {type: 'selector'}
         },
         init: function() {
-          const video = this.data.src;
-          
-          this.el.addEventListener('materialtextureloaded', () => {
-            const mesh = this.el.getObject3D('mesh');
-            if (mesh && mesh.material && video) {
-              // Cria textura de vídeo
-              const texture = new THREE.VideoTexture(video);
-              texture.minFilter = THREE.LinearFilter;
-              texture.magFilter = THREE.LinearFilter;
-              texture.format = THREE.RGBAFormat;
-              
-              // Configura material com transparência
-              mesh.material.map = texture;
-              mesh.material.transparent = true;
-              mesh.material.alphaTest = 0.5;
-              mesh.material.side = THREE.DoubleSide;
-              mesh.material.depthWrite = false;
-              mesh.material.needsUpdate = true;
-              
-              console.log('✅ Material com alpha configurado');
-            }
-          });
+          this.applyAlpha = this.applyAlpha.bind(this);
+          this.el.addEventListener('materialtextureloaded', this.applyAlpha);
         },
-        update: function() {
+        applyAlpha: function() {
           const mesh = this.el.getObject3D('mesh');
           const video = this.data.src;
           
@@ -224,9 +141,10 @@
             mesh.material.alphaTest = 0.5;
             mesh.material.side = THREE.DoubleSide;
             mesh.material.depthWrite = false;
+            mesh.material.opacity = 1.0;
             mesh.material.needsUpdate = true;
             
-            console.log('✅ Material atualizado');
+            console.log('✅ Alpha material aplicado');
           }
         }
       });
@@ -235,12 +153,13 @@
     <a-scene
       embedded
       vr-mode-ui="enabled: false"
-      renderer="antialias: true; alpha: true; precision: medium;"
-      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; trackingMethod: best;"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;"
+      gesture-detector
     >
-      <a-assets timeout="30000">
+      <a-assets>
         <video
-          id="videoWebm"
+          id="vid"
           src="./video_transparente.webm"
           preload="auto"
           loop
@@ -248,33 +167,18 @@
           playsinline
           webkit-playsinline
           crossorigin="anonymous"
-          style="display: none;"
         ></video>
-
-        <img
-          id="imgWebp"
-          src="./video_transparente.webp"
-          crossorigin="anonymous"
-          style="display: none;"
-        />
       </a-assets>
 
-      <a-marker 
-        type="pattern" 
-        url="./marker.patt" 
-        id="marker"
-        smooth="true"
-        smoothCount="5"
-        smoothTolerance="0.01"
-        smoothThreshold="2"
-      >
+      <a-marker type="pattern" url="./marker.patt" id="marker">
         <a-plane
-          id="videoPlane"
+          id="plane"
           position="0 0 0"
           rotation="-90 0 0"
-          width="1.6"
-          height="0.9"
-          material="shader: flat; transparent: true; side: double; alphaTest: 0.5; depthWrite: false;"
+          width="1.5"
+          height="1.5"
+          material="shader: flat; transparent: true; alphaTest: 0.5; side: double;"
+          alpha-video="src: #vid"
         ></a-plane>
       </a-marker>
 
@@ -282,269 +186,120 @@
     </a-scene>
 
     <script>
-      // Previne zoom
-      document.addEventListener('touchmove', (e) => {
-        if (e.scale !== 1) { e.preventDefault(); }
-      }, { passive: false });
-
-      document.addEventListener('gesturestart', (e) => {
-        e.preventDefault();
-      });
-
-      const overlay = document.getElementById("overlay");
-      const startBtn = document.getElementById("startBtn");
-      const status = document.getElementById("status");
-      const debugInfo = document.getElementById("debugInfo");
+      const overlay = document.getElementById('overlay');
+      const startBtn = document.getElementById('startBtn');
+      const debug = document.getElementById('debug');
+      const status = document.getElementById('status');
       const scene = document.querySelector('a-scene');
-      const marker = document.getElementById("marker");
-      const plane = document.getElementById("videoPlane");
-      const videoWebm = document.getElementById("videoWebm");
-      const videoHevc = document.getElementById("videoHevc");
-      const imgWebp = document.getElementById("imgWebp");
-      
-      // Detecta dispositivo
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-      
-      // Escolhe o formato apropriado
-      let mediaElement, mediaType;
-      if (isSafari || isIOS) {
-        // iOS/Safari: usa WebP animado
-        mediaElement = imgWebp;
-        mediaType = 'image';
-        console.log('🍎 Usando WebP para iOS/Safari');
-      } else {
-        // Outros: usa WebM
-        mediaElement = videoWebm;
-        mediaType = 'video';
-        console.log('🌐 Usando WebM para outros browsers');
-      }
-      
-      let state = {
-        sceneReady: false,
-        cameraReady: false,
-        videoReady: false,
-        videoPlaying: false,
-        markerVisible: false,
-        arReady: false
-      };
+      const marker = document.getElementById('marker');
+      const video = document.getElementById('vid');
 
-      function updateDebug() {
-        const device = isMobile ? '📱' : '💻';
-        const browser = isSafari ? 'Safari' : (isIOS ? 'iOS' : 'Other');
-        
-        debugInfo.innerHTML = `
-${device} ${browser}<br>
-Scene: ${state.sceneReady ? '✅' : '⏳'}<br>
-Camera: ${state.cameraReady ? '✅' : '⏳'}<br>
-AR: ${state.arReady ? '✅' : '⏳'}<br>
-Video: ${state.videoReady ? '✅' : '⏳'}<br>
-Playing: ${state.videoPlaying ? '✅' : '❌'}<br>
-Marker: ${state.markerVisible ? '🎯' : '🔍'}<br>
-Format: ${mediaElement.id}
+      let markerFound = false;
+
+      function updateDebug(info) {
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        debug.innerHTML = `
+📱 Device: ${isMobile ? 'Mobile' : 'Desktop'}<br>
+📹 Video: ${video.readyState >= 3 ? '✅' : '⏳'}<br>
+🎯 Marker: ${markerFound ? '✅ FOUND' : '🔍 Searching'}<br>
+⚡ Status: ${info || 'Ready'}
         `.trim();
       }
 
-      // Configura vídeo com transparência
-      function setupVideo() {
-        const elementId = mediaElement.id;
-        
-        // Define a source do media
-        plane.setAttribute("material", {
-          shader: "flat",
-          src: `#${elementId}`,
-          transparent: true,
-          opacity: 1,
-          side: "double",
-          alphaTest: 0.5,
-          depthWrite: false
-        });
-        
-        // Adiciona componente customizado apenas para vídeos
-        if (mediaType === 'video') {
-          plane.setAttribute("video-alpha", `src: #${elementId}`);
-        }
-        
-        // Acessa o material Three.js diretamente após um delay
-        setTimeout(() => {
-          const mesh = plane.getObject3D('mesh');
-          if (mesh && mesh.material) {
-            mesh.material.transparent = true;
-            mesh.material.alphaTest = 0.5;
-            mesh.material.depthWrite = false;
-            mesh.material.side = THREE.DoubleSide;
-            mesh.material.needsUpdate = true;
-            console.log('✅ Material Three.js forçado');
-          }
-        }, 500);
-        
-        console.log(`✅ Media configurado: ${elementId} (${mediaType})`);
-      }
-
-      // Events do media
-      if (mediaType === 'video') {
-        mediaElement.addEventListener('loadedmetadata', () => {
-          state.videoReady = true;
-          if (mediaElement.videoWidth > 0 && mediaElement.videoHeight > 0) {
-            const aspect = mediaElement.videoWidth / mediaElement.videoHeight;
-            plane.setAttribute("width", aspect * 0.9);
-            plane.setAttribute("height", 0.9);
-            console.log(`📐 Vídeo: ${mediaElement.videoWidth}x${mediaElement.videoHeight} (aspect: ${aspect.toFixed(2)})`);
-          }
-          updateDebug();
-        });
-
-        mediaElement.addEventListener('play', () => {
-          state.videoPlaying = true;
-          console.log('▶️ Vídeo tocando');
-          updateDebug();
-        });
-
-        mediaElement.addEventListener('pause', () => {
-          state.videoPlaying = false;
-          console.log('⏸️ Vídeo pausado');
-          updateDebug();
-        });
-
-        mediaElement.addEventListener('error', (e) => {
-          console.error('❌ Erro no vídeo:', e);
-          status.textContent = "❌ Erro ao carregar vídeo";
-        });
-      } else {
-        // Para imagens
-        mediaElement.addEventListener('load', () => {
-          state.videoReady = true;
-          const aspect = mediaElement.naturalWidth / mediaElement.naturalHeight;
-          plane.setAttribute("width", aspect * 0.9);
-          plane.setAttribute("height", 0.9);
-          console.log(`📐 Imagem: ${mediaElement.naturalWidth}x${mediaElement.naturalHeight}`);
-          updateDebug();
-        });
-      }
-
-      // Scene loaded
-      scene.addEventListener('loaded', () => {
-        console.log('✅ Scene pronta');
-        state.sceneReady = true;
-        
-        // FORÇA CANVAS TELA CHEIA
-        setTimeout(() => {
-          const canvas = document.querySelector('canvas');
-          if (canvas) {
-            canvas.style.position = 'fixed';
-            canvas.style.top = '0';
-            canvas.style.left = '0';
-            canvas.style.width = '100vw';
-            canvas.style.height = '100vh';
-            canvas.style.objectFit = 'cover';
-            console.log('🖼️ Canvas forçado tela cheia');
-          }
-        }, 100);
-        
-        updateDebug();
+      // Eventos do vídeo
+      video.addEventListener('loadeddata', () => {
+        console.log('📹 Vídeo carregado');
+        updateDebug('Video loaded');
       });
 
-      // AR.js pronto
-      scene.addEventListener('arjs-video-loaded', () => {
-        console.log('✅ AR.js pronto');
-        state.arReady = true;
-        state.cameraReady = true;
-        setupVideo();
-        updateDebug();
+      video.addEventListener('play', () => {
+        console.log('▶️ Playing');
+        updateDebug('Video playing');
+      });
+
+      video.addEventListener('error', (e) => {
+        console.error('❌ Video error:', e);
+        status.textContent = '❌ Erro ao carregar vídeo';
+      });
+
+      // Eventos da scene
+      scene.addEventListener('renderstart', () => {
+        console.log('🎬 AR.js started');
+        updateDebug('AR started');
       });
 
       // Marker encontrado
-      marker.addEventListener("markerFound", async () => {
-        console.log('🎯 MARCADOR DETECTADO!');
-        state.markerVisible = true;
-        status.textContent = "🎉 MARCADOR ENCONTRADO!";
-        
-        // Toca vídeo (se for vídeo)
-        if (mediaType === 'video') {
-          try {
-            mediaElement.muted = true;
-            if (mediaElement.paused) {
-              await mediaElement.play();
-              console.log('✅ Vídeo iniciado');
-            }
-          } catch (e) {
-            console.warn('⚠️ Erro ao tocar vídeo:', e);
+      marker.addEventListener('markerFound', async () => {
+        markerFound = true;
+        console.log('🎯 MARKER FOUND!');
+        status.textContent = '🎉 Marcador encontrado!';
+        updateDebug('Marker detected');
+
+        try {
+          if (video.paused) {
+            video.muted = true;
+            await video.play();
+            console.log('✅ Video playing');
           }
+        } catch (e) {
+          console.warn('Play error:', e);
         }
-        
-        updateDebug();
       });
 
-      marker.addEventListener("markerLost", () => {
-        console.log('👋 Marcador perdido');
-        state.markerVisible = false;
-        status.textContent = "🔍 Procurando marcador...";
-        updateDebug();
+      marker.addEventListener('markerLost', () => {
+        markerFound = false;
+        console.log('👋 Marker lost');
+        status.textContent = '🔍 Procurando marcador...';
+        updateDebug('Searching marker');
       });
 
       // Botão iniciar
-      async function startAR() {
+      startBtn.addEventListener('click', async () => {
         startBtn.disabled = true;
-        startBtn.textContent = "⏳ Iniciando...";
-        status.textContent = "🎬 Iniciando AR...";
+        startBtn.textContent = '⏳ Iniciando...';
+        status.textContent = '🎬 Iniciando câmera...';
 
         try {
-          // Prepara vídeo (se for vídeo)
-          if (mediaType === 'video') {
-            mediaElement.muted = true;
-            mediaElement.volume = 0;
-            
-            // Tenta tocar (interação necessária)
-            try {
-              await mediaElement.play();
-              mediaElement.pause(); // Pausa até detectar marcador
-              console.log('✅ Vídeo preparado');
-            } catch (e) {
-              console.warn('⚠️ Preparação do vídeo:', e.name);
-            }
+          // Prepara o vídeo
+          video.muted = true;
+          video.volume = 0;
+
+          // Tenta dar play (necessário para autoplay policy)
+          try {
+            await video.play();
+            video.pause();
+            console.log('✅ Video pronto');
+          } catch (e) {
+            console.warn('Video prep:', e);
           }
-          
-          // Remove overlay
+
+          // Esconde overlay
           setTimeout(() => {
-            overlay.classList.add("hidden");
-            status.textContent = "🎯 Aponte para o marcador!";
-          }, 300);
-          
-          // Wake lock
+            overlay.classList.add('hidden');
+            status.textContent = '🎯 Aponte para o seu marcador';
+            updateDebug('Searching marker');
+          }, 500);
+
+          // Wake lock (mantém tela ligada)
           if ('wakeLock' in navigator) {
             try {
               await navigator.wakeLock.request('screen');
-              console.log('🔒 Wake lock ativado');
+              console.log('🔒 Wake lock ativo');
             } catch (e) {
-              console.warn('⚠️ Wake lock não disponível');
+              console.log('Wake lock não disponível');
             }
           }
-          
-          updateDebug();
-          
-        } catch (err) {
-          console.error("❌ Erro ao iniciar:", err);
-          status.textContent = "❌ Erro: " + err.message;
-          startBtn.disabled = false;
-          startBtn.textContent = "🔄 Tentar novamente";
-        }
-      }
 
-      startBtn.addEventListener("click", startAR);
-      startBtn.addEventListener("touchend", (e) => {
-        e.preventDefault();
-        if (!startBtn.disabled) startAR();
+        } catch (err) {
+          console.error('❌ Erro:', err);
+          status.textContent = '❌ Erro: ' + err.message;
+          startBtn.disabled = false;
+          startBtn.textContent = '🔄 Tentar novamente';
+        }
       });
 
-      // Log inicial
-      console.log('🚀 Sistema iniciado');
-      console.log('📱 Dispositivo:', isMobile ? 'Mobile' : 'Desktop');
-      console.log('🌐 Browser:', isSafari ? 'Safari' : (isIOS ? 'iOS' : 'Outro'));
-      console.log('🎬 Media selecionado:', mediaElement.id);
-      console.log('📹 Tipo:', mediaType);
-      
-      updateDebug();
+      console.log('🚀 Sistema carregado');
+      updateDebug('Ready');
     </script>
   </body>
 </html>
