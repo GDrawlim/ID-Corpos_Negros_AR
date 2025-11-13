@@ -1,111 +1,219 @@
 <!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
-  <style>
-    body { margin: 0; overflow: hidden; }
-  </style>
-</head>
-<body>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>AR Vídeo Transparente</title>
+    
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
-  <video id="vid" src="./video_transparente.webm" loop muted playsinline webkit-playsinline style="display:none;"></video>
-
-  <a-scene
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: false;"
-    vr-mode-ui="enabled: false"
-  >
-    <a-marker type="pattern" url="./marker.patt" id="marker">
-      <a-plane
-        id="plane"
-        position="0 0 0"
-        rotation="-90 0 0"
-        width="1"
-        height="1.78"
-      ></a-plane>
-    </a-marker>
-
-    <a-entity camera></a-entity>
-  </a-scene>
-
-  <div style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:white;padding:10px 20px;border-radius:20px;z-index:9999;" id="status">Procurando...</div>
-
-  <script>
-    const video = document.getElementById('vid');
-    const plane = document.getElementById('plane');
-    const marker = document.getElementById('marker');
-    const status = document.getElementById('status');
-
-    let setup = false;
-
-    // ÚNICO lugar que configura o material
-    function setupMaterial() {
-      if (setup) return;
-      
-      const mesh = plane.getObject3D('mesh');
-      if (!mesh) {
-        setTimeout(setupMaterial, 100);
-        return;
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
 
-      // Textura do vídeo
-      const texture = new THREE.VideoTexture(video);
-      texture.format = THREE.RGBAFormat;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
+      body {
+        margin: 0;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        background: black;
+      }
 
-      // Material customizado para forçar transparência
-      mesh.material = new THREE.ShaderMaterial({
-        uniforms: {
-          map: { value: texture }
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform sampler2D map;
-          varying vec2 vUv;
-          void main() {
-            vec4 texColor = texture2D(map, vUv);
-            gl_FragColor = vec4(texColor.rgb, texColor.a);
-            if (texColor.a < 0.1) discard;
-          }
-        `,
-        transparent: true,
-        side: THREE.DoubleSide
+      #debug {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: lime;
+        padding: 10px;
+        font-family: monospace;
+        font-size: 11px;
+        border-radius: 5px;
+        z-index: 9998;
+        max-width: 300px;
+        line-height: 1.4;
+      }
+
+      #status {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-size: 14px;
+        z-index: 9998;
+        text-align: center;
+        min-width: 200px;
+      }
+
+      #startScreen {
+        position: fixed;
+        inset: 0;
+        background: black;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        z-index: 9999;
+      }
+
+      #startBtn {
+        padding: 10px 20px;
+        font-size: 16px;
+        border: none;
+        border-radius: 5px;
+        background: limegreen;
+        color: white;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+
+      #startBtn:hover {
+        background: #00cc44;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- Tela inicial para desbloquear o autoplay -->
+    <div id="startScreen">
+      <p>Toque para iniciar a experiência AR</p>
+      <button id="startBtn">Iniciar</button>
+    </div>
+
+    <div id="debug"></div>
+    <div id="status">Aguardando...</div>
+
+    <a-scene
+      embedded
+      vr-mode-ui="enabled: false"
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;"
+    >
+      <a-assets>
+        <video
+          id="vid"
+          src="./video_transparente.webm"
+          preload="auto"
+          loop
+          muted
+          playsinline
+          webkit-playsinline
+          crossorigin="anonymous"
+        ></video>
+      </a-assets>
+
+      <a-marker type="pattern" url="./marker.patt" id="marker">
+        <a-plane
+          id="plane"
+          position="0 0 0"
+          rotation="-90 0 0"
+          width="1"
+          height="1.78"
+          material="src: #vid; shader: flat; transparent: true; side: double;"
+        ></a-plane>
+      </a-marker>
+
+      <a-entity camera></a-entity>
+    </a-scene>
+
+    <script>
+      const video = document.getElementById('vid');
+      const marker = document.getElementById('marker');
+      const plane = document.getElementById('plane');
+      const debug = document.getElementById('debug');
+      const status = document.getElementById('status');
+      const startScreen = document.getElementById('startScreen');
+      const startBtn = document.getElementById('startBtn');
+
+      let markerFound = false;
+
+      function updateDebug() {
+        debug.innerHTML = `
+Video: ${video.readyState >= 3 ? '✅ pronto' : '⏳ carregando'}<br>
+Playing: ${!video.paused ? '▶️ tocando' : '⏸️ parado'}<br>
+Marker: ${markerFound ? '✅ encontrado' : '🔍 procurando'}
+        `.trim();
+      }
+
+      // Espera o clique para liberar o autoplay
+      startBtn.addEventListener('click', () => {
+        video.play().then(() => {
+          video.pause(); // pausa até o marcador aparecer
+          startScreen.style.display = 'none';
+          status.textContent = '🔍 Procurando marcador...';
+          console.log('🎬 Autoplay desbloqueado.');
+        }).catch(err => {
+          console.warn('⚠️ Erro ao liberar autoplay:', err);
+        });
       });
 
-      setup = true;
-      console.log('Material aplicado');
-    }
+      // Aplica o shader de transparência
+      setTimeout(() => {
+        const mesh = plane.getObject3D('mesh');
+        if (mesh && mesh.material) {
+          const texture = new THREE.VideoTexture(video);
+          texture.format = THREE.RGBAFormat;
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          
+          mesh.material = new THREE.ShaderMaterial({
+            uniforms: { map: { value: texture } },
+            vertexShader: `
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `,
+            fragmentShader: `
+              uniform sampler2D map;
+              varying vec2 vUv;
+              void main() {
+                vec4 color = texture2D(map, vUv);
+                if (color.a < 0.1) discard;
+                gl_FragColor = vec4(color.rgb, color.a);
+              }
+            `,
+            transparent: true,
+            side: THREE.DoubleSide
+          });
+          console.log('✅ Shader aplicado com sucesso');
+        }
+      }, 1000);
 
-    // Quando scene carregar
-    document.querySelector('a-scene').addEventListener('loaded', () => {
-      setTimeout(setupMaterial, 500);
-    });
+      video.addEventListener('loadeddata', () => {
+        console.log('🎞️ Vídeo carregado');
+        updateDebug();
+      });
 
-    // Quando achar marcador
-    marker.addEventListener('markerFound', () => {
-      status.textContent = '✅ Marcador encontrado!';
-      if (!setup) setupMaterial();
-      video.play();
-    });
+      marker.addEventListener('markerFound', () => {
+        markerFound = true;
+        status.textContent = '🎉 Marcador encontrado!';
+        console.log('Marcador encontrado');
+        video.play().catch(err => console.warn('Não pôde reproduzir vídeo:', err));
+        updateDebug();
+      });
 
-    marker.addEventListener('markerLost', () => {
-      status.textContent = '🔍 Procurando...';
-    });
+      marker.addEventListener('markerLost', () => {
+        markerFound = false;
+        status.textContent = '🔍 Procurando marcador...';
+        video.pause();
+        updateDebug();
+      });
 
-    // Prepara vídeo (uma vez só)
-    video.muted = true;
-    video.load();
-  </script>
+      setInterval(updateDebug, 1000);
+      updateDebug();
+    </script>
 
-</body>
+  </body>
 </html>
