@@ -17,78 +17,34 @@
         width: 100vw;
         height: 100vh;
         background: transparent;
-        position: fixed;
       }
 
-      /* Cena AR (sempre atrás da UI) */
-      a-scene.ar-scene,
-      a-scene.ar-scene canvas {
+      /* Cena AR — ocupa 100% e com prioridade absoluta */
+      a-scene,
+      a-scene canvas {
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
         width: 100vw !important;
         height: 100vh !important;
-        z-index: 1 !important;
-      }
-
-      /* Canvas não intercepta cliques */
-      a-scene canvas {
+        z-index: 0 !important;
+        background: transparent !important;
         pointer-events: none !important;
       }
 
-      /* Camada da UI */
-      .ui-layer {
-        position: fixed;
-        z-index: 9999;
-        width: 100%;
-        top: 0;
-        left: 0;
-        pointer-events: auto;
-        font-family: monospace;
-        color: white;
-      }
-
-      #debug {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        background: rgba(0, 0, 0, 0.7);
-        color: lime;
-        padding: 8px 12px;
-        border-radius: 5px;
-        font-size: 11px;
-        line-height: 1.3;
-      }
-
-      #status {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 12px 24px;
-        border-radius: 25px;
-        font-size: 14px;
-        text-align: center;
-        min-width: 200px;
+      /* Nenhum elemento acima da câmera */
+      * {
+        user-select: none;
+        touch-action: none;
       }
     </style>
   </head>
 
   <body>
-    <!-- UI sempre por cima -->
-    <div class="ui-layer">
-      <div id="debug"></div>
-      <div id="status">Aguardando marcador...</div>
-    </div>
-
-    <!-- Cena AR -->
     <a-scene
-      class="ar-scene"
       embedded
       vr-mode-ui="enabled: false"
-      renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;"
+      renderer="logarithmicDepthBuffer: true; antialias: true; precision: medium; alpha: true;"
       arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
     >
       <a-assets>
@@ -121,27 +77,14 @@
       const video = document.getElementById('vid');
       const marker = document.getElementById('marker');
       const plane = document.getElementById('plane');
-      const debug = document.getElementById('debug');
-      const status = document.getElementById('status');
 
-      let markerFound = false;
-
-      // ✅ Detecta se é iPhone/iPad e troca formato
       const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const videoSrc = isIOS ? './video_transparente.webp' : './video_transparente.webm';
       video.src = videoSrc;
 
-      // 🔍 Atualiza debug
-      function updateDebug() {
-        debug.innerHTML = `
-Video: ${video.readyState >= 3 ? '✅' : '⏳'}<br>
-Playing: ${!video.paused ? '▶️' : '⏸️'}<br>
-Src: ${videoSrc.split('/').pop()}<br>
-Marker: ${markerFound ? '✅ FOUND' : '🔍 Searching'}
-        `.trim();
-      }
+      console.log('🎯 Fonte de vídeo:', videoSrc);
 
-      // 🎨 Aplica shader de transparência
+      // Aplicar shader transparente
       function applyShader() {
         const mesh = plane.getObject3D('mesh');
         if (mesh && mesh.material) {
@@ -171,62 +114,45 @@ Marker: ${markerFound ? '✅ FOUND' : '🔍 Searching'}
             transparent: true,
             side: THREE.DoubleSide
           });
-          console.log('✅ Shader aplicado');
+          console.log('✅ Shader transparente aplicado');
         } else {
           setTimeout(applyShader, 500);
         }
       }
 
-      // 📹 Corrige canvas a cada repaint do AR.js
-      function fixCanvasZ() {
+      // Marker detection logic
+      marker.addEventListener('markerFound', () => {
+        console.log('📍 Marcador detectado');
+        video.play().catch(err => console.warn('⚠️ Erro ao reproduzir vídeo:', err));
+      });
+
+      marker.addEventListener('markerLost', () => {
+        console.log('🔍 Marcador perdido');
+      });
+
+      video.addEventListener('loadeddata', () => {
+        console.log('🎞️ Vídeo pronto para reprodução');
+      });
+
+      // Segurança contra recriação de canvas
+      function fixCanvas() {
         const scene = document.querySelector('a-scene');
-        if (!scene) return;
-        const canvas = scene.querySelector('canvas');
+        const canvas = scene?.querySelector('canvas');
         if (canvas) {
           canvas.style.position = 'fixed';
           canvas.style.top = '0';
           canvas.style.left = '0';
           canvas.style.width = '100vw';
           canvas.style.height = '100vh';
-          canvas.style.zIndex = '1';
+          canvas.style.zIndex = '0';
           canvas.style.pointerEvents = 'none';
         }
-        scene.style.position = 'fixed';
-        scene.style.top = '0';
-        scene.style.left = '0';
-        scene.style.width = '100vw';
-        scene.style.height = '100vh';
-        scene.style.zIndex = '1';
       }
 
-      // 🧭 Eventos principais
-      video.addEventListener('loadeddata', () => {
-        console.log('🎞️ Vídeo carregado:', videoSrc);
-        updateDebug();
-      });
+      setInterval(fixCanvas, 2000);
 
-      marker.addEventListener('markerFound', () => {
-        markerFound = true;
-        status.textContent = '🎉 Marcador encontrado!';
-        console.log('📍 Marcador encontrado');
-        video.play().catch(err => console.warn('⚠️ Erro ao reproduzir vídeo:', err));
-        updateDebug();
-      });
-
-      marker.addEventListener('markerLost', () => {
-        markerFound = false;
-        status.textContent = '🔍 Procurando marcador...';
-        updateDebug();
-      });
-
-      // 🔧 Eventos para reordenar camadas
-      window.addEventListener('resize', fixCanvasZ);
-      window.addEventListener('arjs-video-loaded', fixCanvasZ);
-      setInterval(fixCanvasZ, 2000); // segurança contra repaint
-
-      // 🕐 Inicialização
+      // Inicia shader
       setTimeout(applyShader, 1000);
-      updateDebug();
     </script>
   </body>
 </html>
