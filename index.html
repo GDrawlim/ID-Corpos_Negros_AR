@@ -9,31 +9,18 @@
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
     <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         overflow: hidden;
         position: fixed;
         width: 100%;
         height: 100%;
-      }
-
-      .a-canvas {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        height: 100% !important;
-      }
-
-      #arjs-video {
-        position: fixed !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-        width: 100% !important;
-        height: 100% !important;
-        object-fit: cover !important;
-        z-index: -1 !important;
       }
 
       #overlay {
@@ -106,7 +93,7 @@
         font-size: 11px;
         border-radius: 5px;
         z-index: 9998;
-        max-width: 250px;
+        max-width: 300px;
         line-height: 1.4;
       }
 
@@ -146,7 +133,7 @@
         },
         init: function() {
           this.applyAlpha = this.applyAlpha.bind(this);
-          this.el.addEventListener('materialtextureloaded', this.applyAlpha);
+          setTimeout(this.applyAlpha, 100);
         },
         applyAlpha: function() {
           const mesh = this.el.getObject3D('mesh');
@@ -167,6 +154,8 @@
             mesh.material.needsUpdate = true;
             
             console.log('✅ Alpha material aplicado');
+          } else {
+            setTimeout(this.applyAlpha, 200);
           }
         }
       });
@@ -175,9 +164,8 @@
     <a-scene
       embedded
       vr-mode-ui="enabled: false"
-      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3; videoTexture: true;"
-      renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true; colorManagement: true;"
-      gesture-detector
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      renderer="logarithmicDepthBuffer: true; precision: medium; antialias: true; alpha: true;"
     >
       <a-assets>
         <video
@@ -217,6 +205,7 @@
       const video = document.getElementById('vid');
 
       let markerFound = false;
+      let cameraResolution = { width: 0, height: 0 };
 
       function updateDebug(info) {
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -224,7 +213,8 @@
 📱 Device: ${isMobile ? 'Mobile' : 'Desktop'}<br>
 📹 Video Ready: ${video.readyState >= 3 ? '✅' : '⏳ ' + video.readyState}<br>
 ▶️ Playing: ${!video.paused ? '✅' : '❌'}<br>
-📐 Size: ${video.videoWidth}x${video.videoHeight}<br>
+📐 Video: ${video.videoWidth}x${video.videoHeight}<br>
+📷 Camera: ${cameraResolution.width}x${cameraResolution.height}<br>
 🎯 Marker: ${markerFound ? '✅ FOUND' : '🔍 Searching'}<br>
 ⚡ Status: ${info || 'Ready'}
         `.trim();
@@ -236,7 +226,6 @@
         console.log('📐 Dimensões:', video.videoWidth, 'x', video.videoHeight);
         updateDebug('Video loaded');
         
-        // Ajusta proporção do plane baseado no vídeo
         if (video.videoWidth > 0 && video.videoHeight > 0) {
           const aspect = video.videoWidth / video.videoHeight;
           const plane = document.getElementById('plane');
@@ -244,10 +233,6 @@
           plane.setAttribute('height', 1.0);
           console.log('📏 Aspect ratio:', aspect);
         }
-      });
-
-      video.addEventListener('loadedmetadata', () => {
-        console.log('📊 Metadata carregado');
       });
 
       video.addEventListener('canplay', () => {
@@ -269,37 +254,29 @@
       scene.addEventListener('renderstart', () => {
         console.log('🎬 AR.js started');
         updateDebug('AR started');
+      });
+
+      // Detecta quando a câmera está pronta e ajusta
+      scene.addEventListener('camera-init', (data) => {
+        console.log('📷 Camera initialized:', data);
+      });
+
+      // Escuta o evento do AR.js quando o vídeo da câmera carrega
+      window.addEventListener('arjs-video-loaded', (e) => {
+        console.log('📹 AR.js video loaded');
         
-        // Força o vídeo da câmera a preencher toda a tela
         setTimeout(() => {
-          const arVideo = document.querySelector('#arjs-video');
-          if (arVideo) {
-            arVideo.style.position = 'fixed';
-            arVideo.style.top = '50%';
-            arVideo.style.left = '50%';
-            arVideo.style.transform = 'translate(-50%, -50%)';
-            arVideo.style.width = '100%';
-            arVideo.style.height = '100%';
-            arVideo.style.objectFit = 'cover';
-            arVideo.style.zIndex = '-1';
-            
-            // Remove qualquer distorção
-            arVideo.style.objectPosition = 'center';
-            
-            console.log('📹 Vídeo da câmera ajustado');
-            console.log('📐 Dimensões do vídeo:', arVideo.videoWidth, 'x', arVideo.videoHeight);
-          }
+          const arVideo = document.querySelector('video[id^="arjs-video"]') || 
+                         document.querySelector('#arjs-video') ||
+                         document.querySelector('video');
           
-          const canvas = document.querySelector('.a-canvas');
-          if (canvas) {
-            canvas.style.position = 'fixed';
-            canvas.style.top = '0';
-            canvas.style.left = '0';
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            console.log('🖼️ Canvas ajustado');
+          if (arVideo && arVideo !== video) {
+            cameraResolution.width = arVideo.videoWidth;
+            cameraResolution.height = arVideo.videoHeight;
+            console.log('📷 Resolução da câmera detectada:', cameraResolution.width, 'x', cameraResolution.height);
+            updateDebug('Camera ready');
           }
-        }, 100);
+        }, 500);
       });
 
       // Marker encontrado
