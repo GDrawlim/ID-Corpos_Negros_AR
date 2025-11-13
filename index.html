@@ -3,55 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>AR Vídeo Transparente</title>
-    
+    <title>AR Vídeo Transparente com Fallback iOS</title>
+
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
 
     <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-
       body {
         margin: 0;
         overflow: hidden;
-        position: fixed;
+        background: black;
         width: 100%;
         height: 100%;
-        background: black;
-      }
-
-      #debug {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        background: rgba(0, 0, 0, 0.8);
-        color: lime;
-        padding: 10px;
-        font-family: monospace;
-        font-size: 11px;
-        border-radius: 5px;
-        z-index: 9998;
-        max-width: 300px;
-        line-height: 1.4;
-      }
-
-      #status {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 12px 24px;
-        border-radius: 25px;
-        font-size: 14px;
-        z-index: 9998;
-        text-align: center;
-        min-width: 200px;
       }
 
       #startScreen {
@@ -77,14 +40,36 @@
         margin-top: 10px;
       }
 
-      #startBtn:hover {
-        background: #00cc44;
+      #status {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-size: 14px;
+        z-index: 9998;
+      }
+
+      #debug {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: lime;
+        padding: 10px;
+        font-family: monospace;
+        font-size: 11px;
+        border-radius: 5px;
+        z-index: 9998;
       }
     </style>
   </head>
   <body>
 
-    <!-- Tela inicial para desbloquear o autoplay -->
+    <!-- Tela de início -->
     <div id="startScreen">
       <p>Toque para iniciar a experiência AR</p>
       <button id="startBtn">Iniciar</button>
@@ -102,7 +87,6 @@
       <a-assets>
         <video
           id="vid"
-          src="./video_transparente.webm"
           preload="auto"
           loop
           muted
@@ -137,27 +121,37 @@
 
       let markerFound = false;
 
+      // === Detecta se é iPhone / iPad (iOS) ===
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                    (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+
+      // Define o vídeo correto
+      const videoFile = isIOS ? './video_transparente.webp' : './video_transparente.webm';
+      video.src = videoFile;
+
+      console.log(`🎥 Carregando vídeo: ${videoFile}`);
+      console.log(`📱 iOS detectado? ${isIOS}`);
+
       function updateDebug() {
         debug.innerHTML = `
 Video: ${video.readyState >= 3 ? '✅ pronto' : '⏳ carregando'}<br>
 Playing: ${!video.paused ? '▶️ tocando' : '⏸️ parado'}<br>
+Arquivo: ${videoFile}<br>
 Marker: ${markerFound ? '✅ encontrado' : '🔍 procurando'}
         `.trim();
       }
 
-      // Espera o clique para liberar o autoplay
+      // Desbloqueia o autoplay
       startBtn.addEventListener('click', () => {
         video.play().then(() => {
-          video.pause(); // pausa até o marcador aparecer
+          video.pause();
           startScreen.style.display = 'none';
           status.textContent = '🔍 Procurando marcador...';
-          console.log('🎬 Autoplay desbloqueado.');
-        }).catch(err => {
-          console.warn('⚠️ Erro ao liberar autoplay:', err);
-        });
+          console.log('🎬 Autoplay desbloqueado');
+        }).catch(err => console.warn('⚠️ Erro ao liberar autoplay:', err));
       });
 
-      // Aplica o shader de transparência
+      // Aplica shader de transparência (para WebM com alpha)
       setTimeout(() => {
         const mesh = plane.getObject3D('mesh');
         if (mesh && mesh.material) {
@@ -165,7 +159,7 @@ Marker: ${markerFound ? '✅ encontrado' : '🔍 procurando'}
           texture.format = THREE.RGBAFormat;
           texture.minFilter = THREE.LinearFilter;
           texture.magFilter = THREE.LinearFilter;
-          
+
           mesh.material = new THREE.ShaderMaterial({
             uniforms: { map: { value: texture } },
             vertexShader: `
@@ -187,7 +181,7 @@ Marker: ${markerFound ? '✅ encontrado' : '🔍 procurando'}
             transparent: true,
             side: THREE.DoubleSide
           });
-          console.log('✅ Shader aplicado com sucesso');
+          console.log('✅ Shader aplicado');
         }
       }, 1000);
 
