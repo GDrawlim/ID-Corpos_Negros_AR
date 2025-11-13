@@ -133,9 +133,24 @@ Marker: ${markerFound ? '✅' : '❌'}
         applyVideoMaterial();
       }
       
-      // Toca o vídeo
-      video.muted = true;
-      video.play().catch(e => console.error('Play error:', e));
+      // Força o play do vídeo
+      if (video.paused) {
+        video.muted = true;
+        video.currentTime = 0;
+        
+        video.play()
+          .then(() => {
+            console.log('✅ Vídeo tocando!');
+            updateDebug();
+          })
+          .catch(e => {
+            console.error('❌ Erro ao tocar:', e);
+            // Tenta novamente após 100ms
+            setTimeout(() => {
+              video.play().catch(err => console.error('Retry failed:', err));
+            }, 100);
+          });
+      }
       
       updateDebug();
     });
@@ -149,15 +164,27 @@ Marker: ${markerFound ? '✅' : '❌'}
     // Prepara o vídeo
     window.addEventListener('load', () => {
       video.muted = true;
+      video.volume = 0;
       video.load();
       
-      // Tenta dar play e pausar (necessário para alguns browsers)
-      video.play().then(() => {
-        video.pause();
-        console.log('✅ Vídeo preparado');
-      }).catch(e => {
-        console.log('Aguardando interação do usuário');
-      });
+      // IMPORTANTE: Tenta dar play após interação do usuário
+      document.body.addEventListener('click', () => {
+        if (video.paused) {
+          video.play().then(() => {
+            video.pause();
+            console.log('✅ Vídeo preparado após click');
+          }).catch(e => console.log('Prep erro:', e));
+        }
+      }, { once: true });
+      
+      document.body.addEventListener('touchstart', () => {
+        if (video.paused) {
+          video.play().then(() => {
+            video.pause();
+            console.log('✅ Vídeo preparado após touch');
+          }).catch(e => console.log('Prep erro:', e));
+        }
+      }, { once: true });
     });
 
     // Atualiza debug a cada segundo
