@@ -1,22 +1,47 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Artivive - Redirecionamento</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecionando...</title>
 
     <script>
-        function detectarSistema() {
-            const userAgent = navigator.userAgent.toLowerCase();
+        async function detectarSistema() {
+            let isAndroid = false;
+            let isIOS = false;
 
-            if (/iphone|ipad|ipod/.test(userAgent)) {
-                // iOS → App Store
+            // --- Método moderno (userAgentData) ---
+            if (navigator.userAgentData) {
+                const data = navigator.userAgentData;
+                
+                if (data.platform) {
+                    isAndroid = data.platform.toLowerCase().includes("android");
+                    isIOS = data.platform.toLowerCase().includes("ios");
+                }
+            }
+
+            // --- Fallback para navegadores antigos ---
+            if (!isAndroid && !isIOS) {
+                const ua = navigator.userAgent.toLowerCase();
+
+                if (/android/.test(ua)) isAndroid = true;
+
+                // detectar iOS de forma mais confiável
+                if (/iphone|ipad|ipod/.test(ua)) isIOS = true;
+
+                // iPhones novos podem aparecer como "MacIntel" (precisamos testar touch)
+                if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) {
+                    isIOS = true;
+                }
+            }
+
+            // Redirecionamento
+            if (isIOS) {
                 window.location.href = "https://apps.apple.com/app/artivive/id1247307321";
-            } else if (/android/.test(userAgent)) {
-                // Android → Google Play
+            } else if (isAndroid) {
                 window.location.href = "https://play.google.com/store/apps/details?id=com.artivive.app";
             } else {
-                // Outros sistemas → página genérica
+                // Caso não identifique
                 window.location.href = "https://artivive.com/";
             }
         }
@@ -24,6 +49,6 @@
 </head>
 
 <body onload="detectarSistema()">
-    <p>Redirecionando para a loja do aplicativo...</p>
+    <p>Redirecionando para a loja correta...</p>
 </body>
 </html>
