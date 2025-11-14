@@ -10,38 +10,35 @@
             let isAndroid = false;
             let isIOS = false;
 
-            // --- Método moderno (userAgentData) ---
+            // Método moderno
             if (navigator.userAgentData) {
                 const data = navigator.userAgentData;
-                
                 if (data.platform) {
                     isAndroid = data.platform.toLowerCase().includes("android");
                     isIOS = data.platform.toLowerCase().includes("ios");
                 }
             }
 
-            // --- Fallback para navegadores antigos ---
+            // Fallback
             if (!isAndroid && !isIOS) {
                 const ua = navigator.userAgent.toLowerCase();
 
                 if (/android/.test(ua)) isAndroid = true;
 
-                // detectar iOS de forma mais confiável
                 if (/iphone|ipad|ipod/.test(ua)) isIOS = true;
 
-                // iPhones novos podem aparecer como "MacIntel" (precisamos testar touch)
+                // iPhones modernos que aparecem como "Mac"
                 if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) {
                     isIOS = true;
                 }
             }
 
-            // Redirecionamento
+            // Redirecionamentos
             if (isIOS) {
-                window.location.href = "https://apps.apple.com/app/artivive/id1247307321";
+                window.location.href = "https://apps.apple.com/us/app/artivive/id1188737494";
             } else if (isAndroid) {
                 window.location.href = "https://play.google.com/store/apps/details?id=com.artivive.app";
             } else {
-                // Caso não identifique
                 window.location.href = "https://artivive.com/";
             }
         }
