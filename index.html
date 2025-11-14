@@ -6,41 +6,41 @@
     <title>Redirecionando...</title>
 
     <script>
-        async function detectarSistema() {
+        function detectarSistema() {
             let isAndroid = false;
             let isIOS = false;
 
-            // Método moderno
-            if (navigator.userAgentData) {
-                const data = navigator.userAgentData;
-                if (data.platform) {
-                    isAndroid = data.platform.toLowerCase().includes("android");
-                    isIOS = data.platform.toLowerCase().includes("ios");
-                }
+            // --- Detectar via userAgentData (Chrome moderno) ---
+            if (navigator.userAgentData && navigator.userAgentData.platform) {
+                const platform = navigator.userAgentData.platform.toLowerCase();
+
+                if (platform.includes("android")) isAndroid = true;
+                if (platform.includes("ios")) isIOS = true;
             }
 
-            // Fallback
+            // --- Fallback via userAgent ---
             if (!isAndroid && !isIOS) {
                 const ua = navigator.userAgent.toLowerCase();
 
-                if (/android/.test(ua)) isAndroid = true;
-
+                if (ua.includes("android")) isAndroid = true;
                 if (/iphone|ipad|ipod/.test(ua)) isIOS = true;
 
-                // iPhones modernos que aparecem como "Mac"
+                // Detectar iPhones novos aparecendo como “Mac”
                 if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) {
                     isIOS = true;
                 }
             }
 
-            // Redirecionamentos
-            if (isIOS) {
-                window.location.href = "https://apps.apple.com/us/app/artivive/id1188737494";
-            } else if (isAndroid) {
-                window.location.href = "https://play.google.com/store/apps/details?id=com.artivive.app";
-            } else {
-                window.location.href = "https://artivive.com/";
-            }
+            // Atraso para evitar bug do iOS com App Store
+            setTimeout(() => {
+                if (isIOS) {
+                    window.location.href = "https://apps.apple.com/us/app/artivive/id1188737494";
+                } else if (isAndroid) {
+                    window.location.href = "https://play.google.com/store/apps/details?id=com.artivive&hl=pt_BR";
+                } else {
+                    window.location.href = "https://artivive.com/";
+                }
+            }, 400);
         }
     </script>
 </head>
