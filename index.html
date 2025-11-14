@@ -1,115 +1,29 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      height: 100%;
-      width: 100%;
-      background: #000;
-    }
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Artivive - Redirecionamento</title>
 
-    #camera {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 1;
-      background: #000;
-    }
+    <script>
+        function detectarSistema() {
+            const userAgent = navigator.userAgent.toLowerCase();
 
-    #overlay {
-      position: fixed;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 2;
-      pointer-events: none;
-    }
-
-    video.overlay-video {
-      width: 60vw;
-      max-width: 400px;
-      aspect-ratio: 16 / 9;
-      pointer-events: none;
-      transform-origin: center center;
-      transition: transform 0.1s linear;
-      mix-blend-mode: normal;
-    }
-
-    #unlock {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
-      z-index: 999;
-      border: none;
-      background: transparent;
-    }
-  </style>
+            if (/iphone|ipad|ipod/.test(userAgent)) {
+                // iOS → App Store
+                window.location.href = "https://apps.apple.com/app/artivive/id1247307321";
+            } else if (/android/.test(userAgent)) {
+                // Android → Google Play
+                window.location.href = "https://play.google.com/store/apps/details?id=com.artivive.app";
+            } else {
+                // Outros sistemas → página genérica
+                window.location.href = "https://artivive.com/";
+            }
+        }
+    </script>
 </head>
 
-<body>
-  <video id="camera" autoplay playsinline muted></video>
-
-  <div id="overlay">
-    <video id="videoOverlay" class="overlay-video" autoplay loop muted playsinline></video>
-  </div>
-
-  <button id="unlock"></button>
-
-  <script>
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-        document.getElementById('camera').srcObject = stream;
-      } catch (err) {
-        console.error('Erro ao iniciar câmera:', err);
-      }
-    }
-
-    // detecta iPhone
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const overlay = document.getElementById("videoOverlay");
-    overlay.src = isIOS ? "./video_transparente.webp" : "./video_transparente.webm";
-
-    startCamera();
-
-    const unlockBtn = document.getElementById("unlock");
-    unlockBtn.addEventListener("touchstart", async () => {
-      unlockBtn.remove();
-      try {
-        if (typeof DeviceMotionEvent !== "undefined" &&
-            typeof DeviceMotionEvent.requestPermission === "function") {
-          await DeviceMotionEvent.requestPermission();
-        }
-      } catch (e) {}
-      overlay.play().catch(()=>{});
-    }, { once: true });
-
-    // fake depth logic
-    let baseScale = 1;
-    let rotX = 0, rotY = 0;
-
-    window.addEventListener('deviceorientation', (e) => {
-      // Inclinação do celular (em graus)
-      const beta = e.beta || 0;  // frente-trás
-      const gamma = e.gamma || 0; // lado-lado
-
-      // converte pra uma escala visual fake
-      const scale = baseScale + (Math.abs(beta) + Math.abs(gamma)) / 200;
-
-      // pequenas rotações simulando perspectiva
-      rotX = gamma / 5;
-      rotY = beta / 5;
-
-      overlay.style.transform = `translate(-50%, -50%) scale(${scale}) rotateX(${rotY}deg) rotateY(${rotX}deg)`;
-    });
-  </script>
+<body onload="detectarSistema()">
+    <p>Redirecionando para a loja do aplicativo...</p>
 </body>
 </html>
